@@ -1,6 +1,7 @@
 import os
 import requests
 import yfinance as yf
+import pandas as pd
 EGX_TICKERS = [
     "COMI.CA", "CIB.CA", "ETEL.CA", "EFG.CA", "EAST.CA",
     "SWDY.CA", "TALM.CA", "AMOC.CA", "ESRS.CA", "ORWE.CA",
@@ -17,14 +18,32 @@ if not TOKEN or not CHAT_ID:
 
 url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 
+message = ""
 message += "\n📊 EGX Watchlist (30)\n\n"
 
 for ticker in EGX_TICKERS:
     try:
-        data = yf.Ticker(ticker).history(period="1d")
+        data = yf.Ticker(ticker).history(period="60d")
         if not data.empty:
+            close = data["Close"]
+
+ema20 = round(close.ewm(span=20).mean().iloc[-1], 2)
+ema50 = round(close.ewm(span=50).mean().iloc[-1], 2)
+
+delta = close.diff()
+gain = delta.clip(lower=0)
+loss = -delta.clip(upper=0)
+
+avg_gain = gain.rolling(14).mean()
+avg_loss = loss.rolling(14).mean()
+
+rs = avg_gain / avg_loss
+rsi = round(100 - (100 / (1 + rs.iloc[-1])), 2)
             close_price = round(data["Close"].iloc[-1], 2)
-            message += f"{ticker.replace('.CA','')}: {close_price}\n"
+            message += (
+    f"{ticker.replace('.CA','')}: {close_price} | "
+    f"EMA20:{ema20} EMA50:{ema50} RSI:{rsi}\n"
+            )
         else:
             message += f"{ticker.replace('.CA','')}: N/A\n"
     except Exception:
