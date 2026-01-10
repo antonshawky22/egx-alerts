@@ -1,13 +1,18 @@
-import os, requests
+import os
+import requests
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-print("TOKEN:", "OK" if TOKEN else "MISSING")
-print("CHAT_ID:", "OK" if CHAT_ID else "MISSING")
+if not TOKEN or not CHAT_ID:
+    raise Exception("Missing Telegram credentials")
 
-url = f"https://api.telegram.org/bot{TOKEN}/getMe"
-r = requests.get(url)
+url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+
+payload = {
+    "chat_id": CHAT_ID,
+    "text": "✅ EGX Alerts bot is running"
+}
+
+r = requests.post(url, json=payload)
 print(r.text)
-
-exit()
