@@ -29,14 +29,21 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def send_telegram(text):
+    print("TOKEN:", "OK" if TOKEN else "MISSING")
+    print("CHAT_ID:", "OK" if CHAT_ID else "MISSING")
+
     if not TOKEN or not CHAT_ID:
         print("Telegram ENV missing")
         return
+
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, data={
+    r = requests.post(url, data={
         "chat_id": CHAT_ID,
         "text": text
     })
+
+    print("Telegram response:", r.text)
+    
 
 # =====================
 # EGX symbols
