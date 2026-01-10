@@ -1,4 +1,4 @@
-print("EGX EMA ALERTS - STABLE VERSION")
+print("EGX EMA ALERTS - FINAL FIX")
 
 import yfinance as yf
 import requests
@@ -14,7 +14,6 @@ def send_telegram(text):
     if not TOKEN or not CHAT_ID:
         print("Telegram ENV missing")
         return
-
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     requests.post(url, data={
         "chat_id": CHAT_ID,
@@ -22,7 +21,7 @@ def send_telegram(text):
     })
 
 # =====================
-# EGX symbols (20)
+# EGX symbols
 # =====================
 symbols = {
     "COMI": "COMI.CA",
@@ -50,7 +49,7 @@ symbols = {
 alerts = []
 
 # =====================
-# EMA calculation
+# EMA logic (HARD FIX)
 # =====================
 for name, ticker in symbols.items():
     data = yf.download(ticker, period="4mo", interval="1d", progress=False)
@@ -58,16 +57,16 @@ for name, ticker in symbols.items():
     if data.empty or len(data) < 60:
         continue
 
-    close = data["Close"]
+    # 🔥 إجبار Close يبقى Series
+    close = data[["Close"]].squeeze()
 
-    ema20 = close.ewm(span=20, adjust=False).mean()
-    ema50 = close.ewm(span=50, adjust=False).mean()
+    ema20 = close.ewm(span=20, adjust=False).mean().values
+    ema50 = close.ewm(span=50, adjust=False).mean().values
 
-    # 🔒 تحويل صريح لأرقام
-    ema20_prev = float(ema20.iloc[-2])
-    ema50_prev = float(ema50.iloc[-2])
-    ema20_last = float(ema20.iloc[-1])
-    ema50_last = float(ema50.iloc[-1])
+    ema20_prev = ema20[-2]
+    ema50_prev = ema50[-2]
+    ema20_last = ema20[-1]
+    ema50_last = ema50[-1]
 
     if ema20_prev < ema50_prev and ema20_last > ema50_last:
         alerts.append(f"📈 شراء: {name}")
