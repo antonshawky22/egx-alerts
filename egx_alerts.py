@@ -1,4 +1,4 @@
-print("EGX EMA ALERTS - CLEAN START")
+print("EGX EMA ALERTS - STABLE VERSION")
 
 import yfinance as yf
 import requests
@@ -63,9 +63,15 @@ for name, ticker in symbols.items():
     ema20 = close.ewm(span=20, adjust=False).mean()
     ema50 = close.ewm(span=50, adjust=False).mean()
 
-    if ema20.iloc[-2] < ema50.iloc[-2] and ema20.iloc[-1] > ema50.iloc[-1]:
+    # 🔒 تحويل صريح لأرقام
+    ema20_prev = float(ema20.iloc[-2])
+    ema50_prev = float(ema50.iloc[-2])
+    ema20_last = float(ema20.iloc[-1])
+    ema50_last = float(ema50.iloc[-1])
+
+    if ema20_prev < ema50_prev and ema20_last > ema50_last:
         alerts.append(f"📈 شراء: {name}")
-    elif ema20.iloc[-2] > ema50.iloc[-2] and ema20.iloc[-1] < ema50.iloc[-1]:
+    elif ema20_prev > ema50_prev and ema20_last < ema50_last:
         alerts.append(f"📉 بيع: {name}")
 
 # =====================
