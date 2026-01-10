@@ -5,17 +5,6 @@ import requests
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-data = {
-    "chat_id": CHAT_ID,
-    "text": "✅ TEST MESSAGE FROM GITHUB ACTIONS"
-}
-
-r = requests.post(url, data=data)
-print(r.text)
-
-exit()
-
 print("EGX EMA ALERTS - FINAL FIX")
 
 import yfinance as yf
@@ -43,7 +32,7 @@ def send_telegram(text):
     })
 
     print("Telegram response:", r.text)
-    
+  send_telegram("✅ TEST MESSAGE FROM GITHUB ACTIONS")  
 
 # =====================
 # EGX symbols
