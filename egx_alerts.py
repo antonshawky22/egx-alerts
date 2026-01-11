@@ -21,7 +21,7 @@ def send_telegram(text):
     })
 
 # =====================
-# EGX symbols (30 stocks)
+# EGX symbols
 # =====================
 symbols = {
     "COMI": "COMI.CA","CIB": "CIB.CA","EFG": "EFGH.CA","ETEL": "ETEL.CA",
@@ -37,20 +37,22 @@ symbols = {
 alerts = []
 
 # =====================
-# Indicators
+# Logic
 # =====================
 for name, ticker in symbols.items():
     data = yf.download(ticker, period="6mo", interval="1d", progress=False)
-    if data.empty or len(data) < 60:
+
+    if data.empty or "Close" not in data or len(data) < 60:
         continue
 
-    close = data["Close"]
+    # ✅ تحويل الإغلاق لسلسلة أرقام مؤكدة
+    close = data["Close"].squeeze()
 
-    # EMA دخول (هادئ)
+    # EMA دخول
     ema20 = close.ewm(span=20, adjust=False).mean()
     ema50 = close.ewm(span=50, adjust=False).mean()
 
-    # EMA خروج (سريع)
+    # EMA خروج
     ema10 = close.ewm(span=10, adjust=False).mean()
     ema30 = close.ewm(span=30, adjust=False).mean()
 
@@ -63,19 +65,29 @@ for name, ticker in symbols.items():
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
 
-    # آخر قيم
+    # قيم رقمية صريحة
+    ema20_prev = float(ema20.iloc[-2])
+    ema20_last = float(ema20.iloc[-1])
+    ema50_prev = float(ema50.iloc[-2])
+    ema50_last = float(ema50.iloc[-1])
+
+    ema10_prev = float(ema10.iloc[-2])
+    ema10_last = float(ema10.iloc[-1])
+    ema30_prev = float(ema30.iloc[-2])
+    ema30_last = float(ema30.iloc[-1])
+
     rsi_last = float(rsi.iloc[-1])
 
     # =====================
-    # BUY (دخول ثابت)
+    # BUY
     # =====================
-    if ema20.iloc[-2] < ema50.iloc[-2] and ema20.iloc[-1] > ema50.iloc[-1] and rsi_last > 50:
+    if ema20_prev < ema50_prev and ema20_last > ema50_last and rsi_last > 50:
         alerts.append(f"📈 شراء: {name} | RSI={round(rsi_last,1)}")
 
     # =====================
-    # SELL (خروج سريع وآمن)
+    # SELL (سريع)
     # =====================
-    elif ema10.iloc[-2] > ema30.iloc[-2] and ema10.iloc[-1] < ema30.iloc[-1] and rsi_last < 45:
+    elif ema10_prev > ema30_prev and ema10_last < ema30_last and rsi_last < 45:
         alerts.append(f"📉 بيع سريع: {name} | RSI={round(rsi_last,1)}")
 
 # =====================
