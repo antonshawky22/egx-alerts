@@ -1,102 +1,104 @@
-import os
-import requests
-import yfinance as yf
-import pandas as pd
-from datetime import datetime
+print("EGX ALERTS - STABLE BASE + EMA + RSI")
 
-# =============================
-# Telegram settings (ثابتة)
-# =============================
+import yfinance as yf
+import requests
+import os
+
+# =====================
+# Telegram settings (DO NOT TOUCH)
+# =====================
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-def send_telegram(message):
+def send_telegram(text):
+    if not TOKEN or not CHAT_ID:
+        print("Telegram ENV missing")
+        return
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {
+    requests.post(url, data={
         "chat_id": CHAT_ID,
-        "text": message
-    }
-    r = requests.post(url, json=payload)
-    return r.text
+        "text": text
+    })
 
-# =============================
-# EGX symbols (30 سهم)
-# =============================
-SYMBOLS = [
-    "COMI.CA", "ETEL.CA", "EFIH.CA", "SWDY.CA", "ORAS.CA",
-    "TALA.CA", "PHDC.CA", "HRHO.CA", "EAST.CA", "ESRS.CA",
-    "AMOC.CA", "ARCC.CA", "CIB.CA", "POUL.CA", "MCSR.CA",
-    "CCAP.CA", "ISPH.CA", "MFPC.CA", "TMGH.CA", "SKPC.CA",
-    "DCRC.CA", "FWRY.CA", "BTFH.CA", "ACGC.CA", "SUGR.CA",
-    "HELI.CA", "RAYA.CA", "AUTO.CA", "NCCW.CA", "KABO.CA"
-]
+# =====================
+# EGX symbols (30 stocks)
+# =====================
+symbols = {
+    "COMI": "COMI.CA",
+    "CIB": "CIB.CA",
+    "EFG": "EFGH.CA",
+    "ETEL": "ETEL.CA",
+    "TMGH": "TMGH.CA",
+    "ORAS": "ORAS.CA",
+    "SWDY": "SWDY.CA",
+    "HRHO": "HRHO.CA",
+    "PHDC": "PHDC.CA",
+    "EAST": "EAST.CA",
+    "ABUK": "ABUK.CA",
+    "AMOC": "AMOC.CA",
+    "CCAP": "CCAP.CA",
+    "SKPC": "SKPC.CA",
+    "JUFO": "JUFO.CA",
+    "ISPH": "ISPH.CA",
+    "MFPC": "MFPC.CA",
+    "POUL": "POUL.CA",
+    "RAYA": "RAYA.CA",
+    "ZEOT": "ZEOT.CA",
+    "BTFH": "BTFH.CA",
+    "ESRS": "ESRS.CA",
+    "MNHD": "MNHD.CA",
+    "AUTO": "AUTO.CA",
+    "EGTS": "EGTS.CA",
+    "HELI": "HELI.CA",
+    "MPRC": "MPRC.CA",
+    "CNFN": "CNFN.CA",
+    "DTPP": "DTPP.CA"
+}
 
-# =============================
-# Indicator functions
-# =============================
-def calculate_ema(series, period):
-    return round(series.ewm(span=period, adjust=False).mean().iloc[-1], 2)
+alerts = []
 
-def calculate_rsi(series, period=14):
-    delta = series.diff()
-    gain = delta.where(delta > 0, 0.0)
-    loss = -delta.where(delta < 0, 0.0)
+# =====================
+# Indicators logic (SAFE)
+# =====================
+for name, ticker in symbols.items():
+    data = yf.download(ticker, period="6mo", interval="1d", progress=False)
 
-    avg_gain = gain.rolling(window=period).mean()
-    avg_loss = loss.rolling(window=period).mean()
+    if data.empty or len(data) < 60:
+        continue
 
+    close = data["Close"]
+
+    # EMA
+    ema20 = close.ewm(span=20, adjust=False).mean()
+    ema50 = close.ewm(span=50, adjust=False).mean()
+
+    # RSI
+    delta = close.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.rolling(14).mean()
+    avg_loss = loss.rolling(14).mean()
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
 
-    return round(rsi.iloc[-1], 2)
+    # Last values
+    ema20_prev = ema20.iloc[-2]
+    ema50_prev = ema50.iloc[-2]
+    ema20_last = ema20.iloc[-1]
+    ema50_last = ema50.iloc[-1]
+    rsi_last = rsi.iloc[-1]
 
-# =============================
-# Main logic
-# =============================
-alerts = []
+    # Conditions
+    if ema20_prev < ema50_prev and ema20_last > ema50_last and rsi_last > 50:
+        alerts.append(f"📈 شراء: {name} | RSI={round(rsi_last,1)}")
 
-for symbol in SYMBOLS:
-    try:
-        df = yf.download(
-            symbol,
-            period="3mo",
-            interval="1d",
-            progress=False
-        )
+    elif ema20_prev > ema50_prev and ema20_last < ema50_last and rsi_last < 50:
+        alerts.append(f"📉 بيع: {name} | RSI={round(rsi_last,1)}")
 
-        if df.empty or "Close" not in df:
-            continue
-
-        close = df["Close"]
-
-        ema20 = calculate_ema(close, 20)
-        ema50 = calculate_ema(close, 50)
-        rsi14 = calculate_rsi(close, 14)
-        price = round(close.iloc[-1], 2)
-
-        # =============================
-        # Alert condition
-        # =============================
-        if price > ema20 and ema20 > ema50 and rsi14 < 30:
-            alerts.append(
-                f"📈 فرصة محتملة\n"
-                f"السهم: {symbol}\n"
-                f"السعر: {price}\n"
-                f"EMA20: {ema20}\n"
-                f"EMA50: {ema50}\n"
-                f"RSI: {rsi14}\n"
-                f"-------------------"
-            )
-
-    except Exception as e:
-        print(f"Error in {symbol}: {e}")
-
-# =============================
+# =====================
 # Send result
-# =============================
+# =====================
 if alerts:
-    message = "🔔 تنبيهات EGX\n\n" + "\n".join(alerts)
+    send_telegram("🚨 تنبيهات EGX:\n\n" + "\n".join(alerts))
 else:
-    message = "✅ لا توجد فرص مطابقة اليوم"
-
-send_telegram(message)
+    send_telegram("ℹ️ لا توجد إشارات اليوم")
