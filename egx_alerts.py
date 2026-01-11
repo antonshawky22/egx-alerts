@@ -1,8 +1,9 @@
-print("EGX ALERTS - STABLE ENTRY + FAST EXIT")
+print("EGX ALERTS - STABLE ENTRY + FAST EXIT + PLAN B")
 
 import yfinance as yf
 import requests
 import os
+import pandas as pd
 
 # =====================
 # Telegram settings
@@ -21,7 +22,7 @@ def send_telegram(text):
     })
 
 # =====================
-# EGX symbols
+# EGX symbols (30)
 # =====================
 symbols = {
     "COMI": "COMI.CA","CIB": "CIB.CA","EFG": "EFGH.CA","ETEL": "ETEL.CA",
@@ -35,17 +36,30 @@ symbols = {
 }
 
 alerts = []
+data_failures = []
+
+# =====================
+# PRICE FETCH (Plan A / Plan B)
+# =====================
+def get_price_data(ticker):
+    try:
+        data = yf.download(ticker, period="6mo", interval="1d", progress=False)
+        if data.empty or "Close" not in data:
+            raise ValueError("Empty data from yfinance")
+        return data
+    except Exception as e:
+        return None
 
 # =====================
 # Logic
 # =====================
 for name, ticker in symbols.items():
-    data = yf.download(ticker, period="6mo", interval="1d", progress=False)
+    data = get_price_data(ticker)
 
-    if data.empty or "Close" not in data or len(data) < 60:
+    if data is None or len(data) < 60:
+        data_failures.append(name)
         continue
 
-    # ✅ تحويل الإغلاق لسلسلة أرقام مؤكدة
     close = data["Close"].squeeze()
 
     # EMA دخول
@@ -65,28 +79,18 @@ for name, ticker in symbols.items():
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
 
-    # قيم رقمية صريحة
-    ema20_prev = float(ema20.iloc[-2])
-    ema20_last = float(ema20.iloc[-1])
-    ema50_prev = float(ema50.iloc[-2])
-    ema50_last = float(ema50.iloc[-1])
-
-    ema10_prev = float(ema10.iloc[-2])
-    ema10_last = float(ema10.iloc[-1])
-    ema30_prev = float(ema30.iloc[-2])
-    ema30_last = float(ema30.iloc[-1])
-
+    # قيم رقمية
+    ema20_prev, ema20_last = float(ema20.iloc[-2]), float(ema20.iloc[-1])
+    ema50_prev, ema50_last = float(ema50.iloc[-2]), float(ema50.iloc[-1])
+    ema10_prev, ema10_last = float(ema10.iloc[-2]), float(ema10.iloc[-1])
+    ema30_prev, ema30_last = float(ema30.iloc[-2]), float(ema30.iloc[-1])
     rsi_last = float(rsi.iloc[-1])
 
-    # =====================
     # BUY
-    # =====================
     if ema20_prev < ema50_prev and ema20_last > ema50_last and rsi_last > 50:
         alerts.append(f"📈 شراء: {name} | RSI={round(rsi_last,1)}")
 
-    # =====================
-    # SELL (سريع)
-    # =====================
+    # SELL سريع
     elif ema10_prev > ema30_prev and ema10_last < ema30_last and rsi_last < 45:
         alerts.append(f"📉 بيع سريع: {name} | RSI={round(rsi_last,1)}")
 
@@ -97,3 +101,13 @@ if alerts:
     send_telegram("🚨 تنبيهات EGX:\n\n" + "\n".join(alerts))
 else:
     send_telegram("ℹ️ لا توجد إشارات اليوم")
+
+# =====================
+# Data source warning
+# =====================
+if data_failures:
+    send_telegram(
+        "⚠️ تحذير مصدر أسعار:\n"
+        "فشل جلب البيانات للأسهم:\n" +
+        ", ".join(data_failures)
+    )
