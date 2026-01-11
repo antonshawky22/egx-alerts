@@ -1,10 +1,10 @@
-name: EGX Alerts
+name: EGX Alerts Test
 
 on:
   workflow_dispatch:
 
 jobs:
-  run:
+  test:
     runs-on: ubuntu-latest
 
     steps:
@@ -14,19 +14,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Set up Python
-  uses: actions/setup-python@v4
-  with:
-    python-version: '3.11'
-
-- name: Install dependencies
-  run: |
-    python -m pip install --upgrade pip
-    pip install -r requirements.txt
-
-- name: Run script
-  run: |
-    python egx_alerts.py
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Run script
         env:
