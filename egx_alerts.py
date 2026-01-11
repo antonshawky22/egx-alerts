@@ -25,14 +25,12 @@ def send_telegram(text):
 # EGX symbols (30)
 # =====================
 symbols = {
-    "COMI": "COMI.CA","CIB": "CIB.CA","EFG": "EFGH.CA","ETEL": "ETEL.CA",
+    "COMI": "COMI.CA","EFG": "EFGH.CA","ETEL": "ETEL.CA",
     "TMGH": "TMGH.CA","ORAS": "ORAS.CA","SWDY": "SWDY.CA","HRHO": "HRHO.CA",
     "PHDC": "PHDC.CA","EAST": "EAST.CA","ABUK": "ABUK.CA","AMOC": "AMOC.CA",
-    "CCAP": "CCAP.CA","SKPC": "SKPC.CA","JUFO": "JUFO.CA","ISPH": "ISPH.CA",
-    "MFPC": "MFPC.CA","POUL": "POUL.CA","RAYA": "RAYA.CA","ZEOT": "ZEOT.CA",
-    "BTFH": "BTFH.CA","ESRS": "ESRS.CA","MNHD": "MNHD.CA","AUTO": "AUTO.CA",
-    "EGTS": "EGTS.CA","HELI": "HELI.CA","MPRC": "MPRC.CA","CNFN": "CNFN.CA",
-    "DTPP": "DTPP.CA"
+    ","SKPC": "SKPC.CA","JUFO": "JUFO.CA","ISPH": "ISPH.CA",
+    "MFPC": "MFPC.CA","POUL": "POUL.CA","RAYA": "RAYA.CA","ZEOT": "ZEOT.CA","AUTO": "AUTO.CA",
+    "EGTS": "EGTS.CA","HELI": "HELI.CA","MPRC": "MPRC.CA" "orwe"
 }
 
 alerts = []
