@@ -86,8 +86,8 @@ for name, ticker in symbols.items():
     ema50_prev = ema50.iloc[-2]
     ema20_last = ema20.iloc[-1]
     ema50_last = ema50.iloc[-1]
-    rsi_last = rsi.iloc[-1]
-
+    rsi_last = float(rsi.iloc[-1])
+    
     # Conditions
     if ema20_prev < ema50_prev and ema20_last > ema50_last and rsi_last > 50:
         alerts.append(f"📈 شراء: {name} | RSI={round(rsi_last,1)}")
