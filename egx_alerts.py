@@ -4,7 +4,7 @@ import yfinance as yf
 import pandas as pd
 
 # =========================
-# EGX Tickers (30 Stocks)
+# EGX 30 Tickers
 # =========================
 EGX_TICKERS = [
     "COMI.CA", "CIB.CA", "ETEL.CA", "EFG.CA", "EAST.CA",
@@ -16,7 +16,7 @@ EGX_TICKERS = [
 ]
 
 # =========================
-# Telegram Credentials
+# Telegram Config
 # =========================
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
@@ -29,26 +29,26 @@ url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 # =========================
 # Message Header
 # =========================
-message = "📊 EGX Alerts (30 Stocks)\n\n"
+message = "📊 EGX Watchlist (30 Stocks)\n\n"
 
 # =========================
-# Main Loop
+# Data Processing
 # =========================
 for ticker in EGX_TICKERS:
     try:
         data = yf.Ticker(ticker).history(period="60d")
 
-        if data.empty:
+        if data.empty or len(data) < 20:
             message += f"{ticker.replace('.CA','')}: N/A\n"
             continue
 
         close = data["Close"]
 
-        # ===== EMA =====
-        ema20 = close.ewm(span=20).mean().iloc[-1]
-        ema50 = close.ewm(span=50).mean().iloc[-1]
+        close_price = round(close.iloc[-1], 2)
 
-        # ===== RSI =====
+        ema20 = round(close.ewm(span=20).mean().iloc[-1], 2)
+        ema50 = round(close.ewm(span=50).mean().iloc[-1], 2)
+
         delta = close.diff()
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
@@ -57,22 +57,18 @@ for ticker in EGX_TICKERS:
         avg_loss = loss.rolling(14).mean()
 
         rs = avg_gain / avg_loss
-        rsi = 100 - (100 / (1 + rs.iloc[-1]))
+        rsi = round(100 - (100 / (1 + rs.iloc[-1])), 2)
 
-        close_price = close.iloc[-1]
-
-        # ===== Conditions =====
-        alert = ""
+        # Simple Alert Logic
+        signal = ""
         if close_price > ema20 > ema50 and rsi < 70:
-            alert = " 🟢 BUY"
+            signal = " 🟢"
         elif close_price < ema20 < ema50 and rsi > 30:
-            alert = " 🔴 SELL"
+            signal = " 🔴"
 
-        # ===== Message Line =====
         message += (
-            f"{ticker.replace('.CA','')}: {round(close_price,2)} | "
-            f"EMA20:{round(ema20,2)} EMA50:{round(ema50,2)} "
-            f"RSI:{round(rsi,2)}{alert}\n"
+            f"{ticker.replace('.CA','')}: {close_price} | "
+            f"EMA20:{ema20} EMA50:{ema50} RSI:{rsi}{signal}\n"
         )
 
     except Exception:
@@ -86,5 +82,5 @@ payload = {
     "text": message
 }
 
-response = requests.post(url, json=payload)
-print(response.text)
+r = requests.post(url, json=payload)
+print(r.text)
