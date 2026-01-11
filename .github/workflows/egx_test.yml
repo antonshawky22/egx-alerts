@@ -1,0 +1,27 @@
+name: EGX Data Source Test
+
+on:
+  workflow_dispatch:   # تشغيل يدوي
+  schedule:
+    - cron: '30 13 * * 0-4'   # أيام البورصة 3:30 عصراً بتوقيت مصر
+
+jobs:
+  test-egx-source:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Run EGX source test
+      run: |
+        python egx_egx_test.py
