@@ -1,7 +1,8 @@
-print("EGX BOT TEST START")
+print("EGX BOT - STAGE 2 TEST")
 
 import os
 import requests
+import yfinance as yf
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
@@ -16,4 +17,12 @@ def send_telegram(msg):
     })
     print("Telegram response:", r.text)
 
-send_telegram("✅ GitHub Actions test message")
+# ===== Test yfinance =====
+ticker = "COMI.CA"
+data = yf.download(ticker, period="5d", interval="1d", progress=False)
+
+if data.empty:
+    send_telegram("❌ yfinance test failed: no data")
+else:
+    last_close = data["Close"].iloc[-1]
+    send_telegram(f"✅ yfinance OK\n{ticker} Close: {last_close}")
