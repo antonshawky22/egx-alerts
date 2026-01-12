@@ -16,10 +16,7 @@ def send_telegram(text):
         print("Telegram ENV missing")
         return
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, data={
-        "chat_id": CHAT_ID,
-        "text": text
-    })
+    requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
 # =====================
 # EGX symbols
@@ -43,10 +40,10 @@ data_failures = []
 # =====================
 def fetch_yfinance(ticker):
     try:
-        data = yf.download(ticker, period="6mo", interval="1d", progress=False)
-        if data is None or data.empty or "Close" not in data:
+        df = yf.download(ticker, period="6mo", interval="1d", progress=False)
+        if df is None or df.empty or "Close" not in df:
             return None
-        return data
+        return df
     except Exception:
         return None
 
@@ -54,27 +51,20 @@ def fetch_stooq(ticker):
     try:
         symbol = ticker.replace(".CA", "")
         url = f"https://stooq.com/q/d/l/?s={symbol}&i=d"
-        data = pd.read_csv(url)
-        if data is None or data.empty or "Close" not in data:
+        df = pd.read_csv(url)
+        if df is None or df.empty or "Close" not in df:
             return None
-        data["Date"] = pd.to_datetime(data["Date"])
-        data.set_index("Date", inplace=True)
-        return data
+        df["Date"] = pd.to_datetime(df["Date"])
+        df.set_index("Date", inplace=True)
+        return df
     except Exception:
         return None
 
 def get_price_data(ticker):
-    # المصدر الأول: yfinance
-    data = fetch_yfinance(ticker)
-    if data is not None and not data.empty:
-        return data
-
-    # المصدر الاحتياطي: stooq
-    data = fetch_stooq(ticker)
-    if data is not None and not data.empty:
-        return data
-
-    return None
+    df = fetch_yfinance(ticker)
+    if df is not None:
+        return df
+    return fetch_stooq(ticker)
 
 # =====================
 # Logic
@@ -86,12 +76,16 @@ for name, ticker in symbols.items():
         data_failures.append(name)
         continue
 
+    # ✅ حل جذري لمشكلة Series / DataFrame
     close = data["Close"]
+    if isinstance(close, pd.DataFrame):
+        close = close.iloc[:, 0]
+    close = close.astype(float)
 
-    ema20 = close.ewm(span=20).mean()
-    ema50 = close.ewm(span=50).mean()
-    ema10 = close.ewm(span=10).mean()
-    ema30 = close.ewm(span=30).mean()
+    ema20 = close.ewm(span=20, adjust=False).mean()
+    ema50 = close.ewm(span=50, adjust=False).mean()
+    ema10 = close.ewm(span=10, adjust=False).mean()
+    ema30 = close.ewm(span=30, adjust=False).mean()
 
     delta = close.diff()
     gain = delta.clip(lower=0)
@@ -99,36 +93,29 @@ for name, ticker in symbols.items():
     rs = gain.rolling(14).mean() / loss.rolling(14).mean()
     rsi = 100 - (100 / (1 + rs))
 
-    ema20_prev, ema20_last = ema20.iloc[-2], ema20.iloc[-1]
-    ema50_prev, ema50_last = ema50.iloc[-2], ema50.iloc[-1]
-    ema10_prev, ema10_last = ema10.iloc[-2], ema10.iloc[-1]
-    ema30_prev, ema30_last = ema30.iloc[-2], ema30.iloc[-1]
-    rsi_last = rsi.iloc[-1]
+    # ✅ تحويل صريح لـ float (مهم جدًا)
+    ema20_prev = float(ema20.iloc[-2])
+    ema20_last = float(ema20.iloc[-1])
+    ema50_prev = float(ema50.iloc[-2])
+    ema50_last = float(ema50.iloc[-1])
+    ema10_prev = float(ema10.iloc[-2])
+    ema10_last = float(ema10.iloc[-1])
+    ema30_prev = float(ema30.iloc[-2])
+    ema30_last = float(ema30.iloc[-1])
+    rsi_last  = float(rsi.iloc[-1])
 
     ema_gap = abs(ema20_last - ema50_last) / ema50_last
 
-    # 🟢 BUY مبكر
-    if (
-        ema20_last < ema50_last
-        and ema_gap < 0.015
-        and 40 <= rsi_last <= 55
-    ):
+    # 🟢 BUY مبكر (إشارات أكتر)
+    if ema20_last < ema50_last and ema_gap < 0.015 and 40 <= rsi_last <= 55:
         alerts.append(f"🟢 شراء مبكر: {name} | RSI={round(rsi_last,1)}")
 
     # 📈 BUY مؤكد
-    if (
-        ema20_prev < ema50_prev
-        and ema20_last > ema50_last
-        and rsi_last >= 48
-    ):
+    if ema20_prev < ema50_prev and ema20_last > ema50_last and rsi_last >= 48:
         alerts.append(f"📈 شراء: {name} | RSI={round(rsi_last,1)}")
 
     # 📉 SELL سريع
-    if (
-        ema10_prev > ema30_prev
-        and ema10_last < ema30_last
-        and rsi_last <= 50
-    ):
+    if ema10_prev > ema30_prev and ema10_last < ema30_last and rsi_last <= 50:
         alerts.append(f"📉 بيع سريع: {name} | RSI={round(rsi_last,1)}")
 
 # =====================
