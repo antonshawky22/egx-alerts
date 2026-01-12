@@ -118,7 +118,17 @@ for name, ticker in symbols.items():
     ema10_prev, ema10_last = ema10.iloc[-2], ema10.iloc[-1]
     ema30_prev, ema30_last = ema30.iloc[-2], ema30.iloc[-1]
     rsi_last = rsi.iloc[-1]
+   # =====================
+# BUY مبكر
+# =====================
+ema_gap = abs(ema20_last - ema50_last) / ema50_last
 
+if (
+    ema20_last < ema50_last
+    and ema_gap < 0.01   # الفرق أقل من 1%
+    and rsi_last >= 45
+):
+    alerts.append(f"🟢 شراء مبكر: {name} | RSI={round(rsi_last,1)}")
     if ema20_prev < ema50_prev and ema20_last > ema50_last and rsi_last > 50:
         alerts.append(f"📈 شراء: {name} | RSI={round(rsi_last,1)}")
 
