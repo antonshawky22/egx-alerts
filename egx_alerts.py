@@ -25,22 +25,37 @@ def send_telegram(text):
 # EGX symbols
 # =====================
 symbols = {
-    "EFG": "EFGH.CA",
-    "ETEL": "ETEL.CA",
-    "SWDY": "SWDY.CA",
-    "HRHO": "HRHO.CA",
-    "EAST": "EAST.CA",
-    "ABUK": "ABUK.CA",
-    "ISPH": "ISPH.CA",
-    "JUFO": "JUFO.CA",
-    "RAYA": "RAYA.CA",
-    "ORWE": "ORWE.CA",
-
-    "EFIH": "EFIH.CA",
-    "EMFD": "EMFD.CA",
+    "OFH": "OFH.CA",
     "OLFI": "OLFI.CA",
+    "EMFD": "EMFD.CA",
+    "ETEL": "ETEL.CA",
+    "EAST": "EAST.CA",
+    "EFIH": "EFIH.CA",
+    "ABUK": "ABUK.CA",
+    "OIH": "OIH.CA",
+    "SWDY": "SWDY.CA",
+    "ISPH": "ISPH.CA",
+    "ATQA": "ATQA.CA",
     "MTIE": "MTIE.CA",
     "ELEC": "ELEC.CA",
+    "HRHO": "HRHO.CA",
+    "ORWE": "ORWE.CA",
+    "JUFO": "JUFO.CA",
+    "DSCW": "DSCW.CA",
+    "SUGR": "SUGR.CA",
+    "ELSH": "ELSH.CA",
+    "RMDA": "RMDA.CA",
+    "RAYA": "RAYA.CA",
+    "EEII": "EEII.CA",
+    "MPCO": "MPCO.CA",
+    "GBCO": "GBCO.CA",
+
+    # extra liquid
+    "COMI": "COMI.CA",
+    "EFG": "EFGH.CA",
+    "TMGH": "TMGH.CA",
+    "ORAS": "ORAS.CA",
+    "AMOC": "AMOC.CA",
 }
 
 alerts = []
