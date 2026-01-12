@@ -44,7 +44,7 @@ data_failures = []
 def fetch_yfinance(ticker):
     try:
         data = yf.download(ticker, period="6mo", interval="1d", progress=False)
-        if data.empty or "Close" not in data:
+        if data is None or data.empty or "Close" not in data:
             return None
         return data
     except Exception:
@@ -55,7 +55,7 @@ def fetch_stooq(ticker):
         symbol = ticker.replace(".CA", "")
         url = f"https://stooq.com/q/d/l/?s={symbol}&i=d"
         data = pd.read_csv(url)
-        if data.empty or "Close" not in data:
+        if data is None or data.empty or "Close" not in data:
             return None
         data["Date"] = pd.to_datetime(data["Date"])
         data.set_index("Date", inplace=True)
@@ -64,7 +64,17 @@ def fetch_stooq(ticker):
         return None
 
 def get_price_data(ticker):
-    return fetch_yfinance(ticker) or fetch_stooq(ticker)
+    # المصدر الأول: yfinance
+    data = fetch_yfinance(ticker)
+    if data is not None and not data.empty:
+        return data
+
+    # المصدر الاحتياطي: stooq
+    data = fetch_stooq(ticker)
+    if data is not None and not data.empty:
+        return data
+
+    return None
 
 # =====================
 # Logic
@@ -76,7 +86,7 @@ for name, ticker in symbols.items():
         data_failures.append(name)
         continue
 
-    close = data["Close"].squeeze()
+    close = data["Close"]
 
     ema20 = close.ewm(span=20).mean()
     ema50 = close.ewm(span=50).mean()
@@ -97,16 +107,28 @@ for name, ticker in symbols.items():
 
     ema_gap = abs(ema20_last - ema50_last) / ema50_last
 
-    # 🟢 BUY مبكر (إشارات أكتر)
-    if ema20_last < ema50_last and ema_gap < 0.015 and 40 <= rsi_last <= 55:
+    # 🟢 BUY مبكر
+    if (
+        ema20_last < ema50_last
+        and ema_gap < 0.015
+        and 40 <= rsi_last <= 55
+    ):
         alerts.append(f"🟢 شراء مبكر: {name} | RSI={round(rsi_last,1)}")
 
     # 📈 BUY مؤكد
-    if ema20_prev < ema50_prev and ema20_last > ema50_last and rsi_last >= 48:
+    if (
+        ema20_prev < ema50_prev
+        and ema20_last > ema50_last
+        and rsi_last >= 48
+    ):
         alerts.append(f"📈 شراء: {name} | RSI={round(rsi_last,1)}")
 
     # 📉 SELL سريع
-    if ema10_prev > ema30_prev and ema10_last < ema30_last and rsi_last <= 50:
+    if (
+        ema10_prev > ema30_prev
+        and ema10_last < ema30_last
+        and rsi_last <= 50
+    ):
         alerts.append(f"📉 بيع سريع: {name} | RSI={round(rsi_last,1)}")
 
 # =====================
@@ -121,4 +143,4 @@ if data_failures:
     send_telegram(
         "⚠️ تحذير مصدر أسعار:\nفشل جلب البيانات للأسهم:\n" +
         ", ".join(data_failures)
-    )
+)
