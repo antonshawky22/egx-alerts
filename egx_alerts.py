@@ -27,8 +27,7 @@ symbols = {
     "SWDY": "SWDY.CA","ISPH": "ISPH.CA","ATQA": "ATQA.CA","MTIE": "MTIE.CA",
     "ELEC": "ELEC.CA","HRHO": "HRHO.CA","ORWE": "ORWE.CA","JUFO": "JUFO.CA",
     "DSCW": "DSCW.CA","SUGR": "SUGR.CA","ELSH": "ELSH.CA","RMDA": "RMDA.CA",
-    "RAYA": "RAYA.CA","EEII": "EEII.CA","MPCO": "MPCO.CA","GBCO": "GBCO.CA",
-    "COMI": "COMI.CA","EFG": "EFGH.CA","TMGH": "TMGH.CA",
+    "RAYA": "RAYA.CA","EEII": "EEII.CA","MPCO": "MPCO.CA","GBCO": "GBCO.CA","TMGH": "TMGH.CA",
     "ORAS": "ORAS.CA","AMOC": "AMOC.CA",
 }
 
