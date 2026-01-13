@@ -62,7 +62,7 @@ def fetch_yfinance(ticker):
         return None
 
 # =====================
-# ADX calculation (مُصلح)
+# ADX calculation (آمن)
 # =====================
 def calculate_adx(df, period=14):
     high = df["High"]
@@ -89,7 +89,8 @@ def calculate_adx(df, period=14):
     dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
     adx = dx.rolling(period).mean()
 
-    return adx.dropna()
+    adx = adx.dropna()
+    return adx if not adx.empty else None
 
 # =====================
 # Logic
@@ -118,6 +119,8 @@ for name, ticker in symbols.items():
     rsi = 100 - (100 / (1 + rs))
 
     adx = calculate_adx(data)
+    if adx is None:
+        continue
 
     # =====================
     # SAFE LAST VALUES
