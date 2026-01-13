@@ -107,13 +107,13 @@ for name, ticker in symbols.items():
     # =====================
     if sum(buy_conditions) >= 2:
         alerts.append(
-            f"🟢 شراء فوري: {name} | RSI={round(rsi_last,1)}"
-        )
+    f"🟢 شراء    {price_last:.2f}    {name}"
+    )
 
     elif sum(sell_conditions) >= 2:
-        alerts.append(
-            f"🔴 بيع فوري: {name} | RSI={round(rsi_last,1)}"
-        )
+   alerts.append(
+    f"🔴 بيع     {name}    {price_last:.2f}"
+    )     
 
 # =====================
 # Send alerts
