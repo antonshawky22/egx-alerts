@@ -21,7 +21,7 @@ def send_telegram(text):
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
 # =====================
-# EGX symbols (مثبتة)
+# EGX symbols
 # =====================
 symbols = {
     "OFH": "OFH.CA","OLFI": "OLFI.CA","EMFD": "EMFD.CA","ETEL": "ETEL.CA",
@@ -62,10 +62,12 @@ def fetch_yfinance(ticker):
         return None
 
 # =====================
-# ADX calculation
+# ADX calculation (مُصلح)
 # =====================
 def calculate_adx(df, period=14):
-    high, low, close = df["High"], df["Low"], df["Close"]
+    high = df["High"]
+    low = df["Low"]
+    close = df["Close"]
 
     plus_dm = high.diff()
     minus_dm = low.diff().abs()
@@ -80,13 +82,14 @@ def calculate_adx(df, period=14):
     ], axis=1).max(axis=1)
 
     atr = tr.rolling(period).mean()
+
     plus_di = 100 * (plus_dm.rolling(period).mean() / atr)
     minus_di = 100 * (minus_dm.rolling(period).mean() / atr)
 
     dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
     adx = dx.rolling(period).mean()
 
-    return adx
+    return adx.dropna()
 
 # =====================
 # Logic
@@ -94,7 +97,7 @@ def calculate_adx(df, period=14):
 for name, ticker in symbols.items():
     data = fetch_yfinance(ticker)
 
-    if data is None or len(data) < 60:
+    if data is None or len(data) < 70:
         data_failures.append(name)
         continue
 
@@ -107,15 +110,20 @@ for name, ticker in symbols.items():
     delta = close.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
+
     avg_gain = gain.ewm(alpha=1/14, adjust=False).mean()
     avg_loss = loss.ewm(alpha=1/14, adjust=False).mean()
+
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
 
     adx = calculate_adx(data)
 
+    # =====================
+    # SAFE LAST VALUES
+    # =====================
     price = float(close.iloc[-1])
-    rsi_last = float(rsi.iloc[-1])
+    rsi_last = float(rsi.dropna().iloc[-1])
     ema20_last = float(ema20.iloc[-1])
     ema50_last = float(ema50.iloc[-1])
     adx_last = float(adx.iloc[-1])
