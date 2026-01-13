@@ -62,7 +62,7 @@ def fetch_yfinance(ticker):
         return None
 
 # =====================
-# ADX calculation (آمن)
+# ADX calculation
 # =====================
 def calculate_adx(df, period=14):
     high = df["High"]
@@ -122,9 +122,6 @@ for name, ticker in symbols.items():
     if adx is None:
         continue
 
-    # =====================
-    # SAFE LAST VALUES
-    # =====================
     price = float(close.iloc[-1])
     rsi_last = float(rsi.dropna().iloc[-1])
     ema20_last = float(ema20.iloc[-1])
@@ -132,18 +129,18 @@ for name, ticker in symbols.items():
     adx_last = float(adx.iloc[-1])
 
     # =====================
-    # CONDITIONS (2 of 3)
+    # UPDATED CONDITIONS (2 of 3)
     # =====================
     buy_conditions = [
-        40 <= rsi_last <= 48,
-        price > ema20_last and price <= ema50_last * 1.02,
-        adx_last < 20
+        38 <= rsi_last <= 50,
+        ema20_last > ema50_last * 0.98,   # اتجاه شبه محايد / بداية صعود
+        adx_last < 22
     ]
 
     sell_conditions = [
-        55 <= rsi_last <= 62,
-        price < ema20_last,
-        adx_last < 20
+        52 <= rsi_last <= 65,
+        ema20_last < ema50_last * 1.02,   # اتجاه شبه محايد / بداية هبوط
+        adx_last < 22
     ]
 
     if sum(buy_conditions) >= 2:
