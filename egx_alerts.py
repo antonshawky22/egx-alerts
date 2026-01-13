@@ -1,4 +1,4 @@
-print("EGX ALERTS - DAILY SWING TRADING (LOSS RECOVERY MODE)")
+print("EGX ALERTS - DAILY SWING TRADING (MULTI-DAY MODE)")
 
 import yfinance as yf
 import requests
@@ -23,8 +23,9 @@ def send_telegram(text):
 # =====================
 symbols = {
     "OFH": "OFH.CA","OLFI": "OLFI.CA","EMFD": "EMFD.CA","ETEL": "ETEL.CA",
-    "EAST": "EAST.CA","OIH": "OIH.CA","HRHO": "HRHO.CA","ORWE": "ORWE.CA","JUFO": "JUFO.CA",
-    "DSCW": "DSCW.CA","SUGR": "SUGR.CA","ELSH": "ELSH.CA","RMDA": "RMDA.CA","FWRY": "FWRY.CA"
+    "EAST": "EAST.CA","OIH": "OIH.CA","HRHO": "HRHO.CA","ORWE": "ORWE.CA",
+    "JUFO": "JUFO.CA","DSCW": "DSCW.CA","SUGR": "SUGR.CA",
+    "ELSH": "ELSH.CA","RMDA": "RMDA.CA","FWRY": "FWRY.CA"
 }
 
 alerts = []
@@ -56,7 +57,10 @@ def fetch_stooq(ticker):
         return None
 
 def get_price_data(ticker):
-    return fetch_yfinance(ticker) or fetch_stooq(ticker)
+    df = fetch_yfinance(ticker)
+    if df is not None:
+        return df
+    return fetch_stooq(ticker)
 
 # =====================
 # Logic (SWING TRADING)
@@ -75,8 +79,9 @@ for name, ticker in symbols.items():
 
     # EMA
     ema10 = close.ewm(span=10, adjust=False).mean()
+    ema20 = close.ewm(span=20, adjust=False).mean()
 
-    # RSI Wilder + smoothing
+    # RSI Wilder + light smoothing
     delta = close.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
@@ -89,29 +94,40 @@ for name, ticker in symbols.items():
 
     # Last values
     price_last = float(close.iloc[-1])
-    ema10_last = float(ema10.iloc[-1])
-    ema10_prev = float(ema10.iloc[-2])
     rsi_last = float(rsi.iloc[-1])
+    ema10_last = float(ema10.iloc[-1])
+    ema20_last = float(ema20.iloc[-1])
 
     # =====================
-    # 🟢 BUY (ارتداد مضاربي)
+    # 🟢 BUY (Swing Entry)
     # =====================
-    if 30 <= rsi_last <= 40 and price_last >= ema10_last * 0.98:
-        alerts.append(f"🟢 مضاربة شراء: {name} | RSI={round(rsi_last,1)}")
+    if (
+        32 <= rsi_last <= 42 and
+        price_last >= ema10_last * 0.99 and
+        ema10_last <= ema20_last * 1.02
+    ):
+        alerts.append(
+            f"🟢 شراء سوينج: {name} | RSI={round(rsi_last,1)}"
+        )
 
     # =====================
-    # 📉 SELL (خروج سريع)
+    # 📉 SELL (Swing Exit)
     # =====================
-    if rsi_last >= 55 or price_last < ema10_last:
-        alerts.append(f"📉 مضاربة بيع: {name} | RSI={round(rsi_last,1)}")
+    if (
+        rsi_last >= 60 or
+        price_last < ema20_last
+    ):
+        alerts.append(
+            f"📉 بيع سوينج: {name} | RSI={round(rsi_last,1)}"
+        )
 
 # =====================
 # Send alerts
 # =====================
 if alerts:
-    send_telegram("🚨 تنبيهات مضاربة يومية:\n\n" + "\n".join(alerts))
+    send_telegram("🚨 تنبيهات سوينج (عدة أيام):\n\n" + "\n".join(alerts))
 else:
-    send_telegram("ℹ️ لا توجد فرص مضاربة اليوم")
+    send_telegram("ℹ️ لا توجد فرص سوينج حالياً")
 
 if data_failures:
     send_telegram(
