@@ -3,6 +3,7 @@ print("EGX ALERTS - BUY / SELL ONLY (EMA9 + RSI MA | 2 of 3)")
 import yfinance as yf
 import requests
 import os
+import json
 import pandas as pd
 
 # =====================
@@ -31,6 +32,19 @@ alerts = []
 data_failures = []
 
 # =====================
+# Load last signals (prevent duplicates)
+# =====================
+SIGNALS_FILE = "last_signals.json"
+
+if os.path.exists(SIGNALS_FILE):
+    with open(SIGNALS_FILE, "r") as f:
+        last_signals = json.load(f)
+else:
+    last_signals = {}
+
+new_signals = last_signals.copy()
+
+# =====================
 # PRICE FETCH
 # =====================
 def fetch_yfinance(ticker):
@@ -55,7 +69,7 @@ for name, ticker in symbols.items():
     close = data["Close"].astype(float)
 
     # =====================
-    # EMA 9 (منعم)
+    # EMA 9
     # =====================
     ema9 = close.ewm(span=9, adjust=False).mean()
     ema9_smooth = ema9.ewm(span=3, adjust=False).mean()
@@ -72,18 +86,16 @@ for name, ticker in symbols.items():
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
 
-    # RSI Moving Average (تنظيف الإشارة)
     rsi_ma = rsi.ewm(span=5, adjust=False).mean()
 
     # =====================
     # LAST VALUES
     # =====================
-    price = float(close.iloc[-1])
+    price_last = float(close.iloc[-1])
     ema9_last = float(ema9_smooth.iloc[-1])
 
     rsi_last = float(rsi.iloc[-1])
     rsi_prev = float(rsi.iloc[-2])
-
     rsi_ma_last = float(rsi_ma.iloc[-1])
     rsi_ma_prev = float(rsi_ma.iloc[-2])
 
@@ -93,31 +105,34 @@ for name, ticker in symbols.items():
     buy_conditions = [
         38 <= rsi_last <= 45,
         rsi_prev < rsi_ma_prev and rsi_last > rsi_ma_last,
-        price > ema9_last
+        price_last > ema9_last
     ]
 
     sell_conditions = [
         60 <= rsi_last <= 68,
         rsi_prev > rsi_ma_prev and rsi_last < rsi_ma_last,
-        price < ema9_last
+        price_last < ema9_last
     ]
 
- SIGNAL DECISION
+    # =====================
+    # SIGNAL DECISION
+    # =====================
+    if sum(buy_conditions) >= 2:
+        if last_signals.get(name) != "BUY":
+            alerts.append(f"🟢 شراء    {price_last:.2f}    {name}")
+            new_signals[name] = "BUY"
+
+    elif sum(sell_conditions) >= 2:
+        if last_signals.get(name) != "SELL":
+            alerts.append(f"🔴 بيع     {name}    {price_last:.2f}")
+            new_signals[name] = "SELL"
+
 # =====================
+# Save signals
+# =====================
+with open(SIGNALS_FILE, "w") as f:
+    json.dump(new_signals, f)
 
-if sum(buy_conditions) >= 2:
-    if last_signals.get(name) != "BUY":
-        alerts.append(
-            f"🟢 شراء    {price_last:.2f}    {name}"
-        )
-        new_signals[name] = "BUY"
-
-elif sum(sell_conditions) >= 2:
-    if last_signals.get(name) != "SELL":
-        alerts.append(
-            f"🔴 بيع     {name}    {price_last:.2f}"
-        )
-        new_signals[name] = "SELL"
 # =====================
 # Send alerts
 # =====================
