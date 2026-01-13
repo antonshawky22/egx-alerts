@@ -1,10 +1,11 @@
-print("EGX ALERTS - BUY / SELL ONLY (EMA9 + RSI MA | 2 of 3)")
+print("EGX ALERTS - BUY / SELL ONLY (EMA20/50 + RSI + ADX | 2 of 3)")
 
 import yfinance as yf
 import requests
 import os
 import json
 import pandas as pd
+import numpy as np
 
 # =====================
 # Telegram settings
@@ -20,7 +21,7 @@ def send_telegram(text):
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
 # =====================
-# EGX symbols
+# EGX symbols (مثبتة)
 # =====================
 symbols = {
     "OFH": "OFH.CA","OLFI": "OLFI.CA","EMFD": "EMFD.CA","ETEL": "ETEL.CA",
@@ -36,7 +37,7 @@ alerts = []
 data_failures = []
 
 # =====================
-# Load last signals (prevent duplicates)
+# Load last signals
 # =====================
 SIGNALS_FILE = "last_signals.json"
 
@@ -49,16 +50,43 @@ else:
 new_signals = last_signals.copy()
 
 # =====================
-# PRICE FETCH
+# Fetch data
 # =====================
 def fetch_yfinance(ticker):
     try:
         df = yf.download(ticker, period="6mo", interval="1d", progress=False)
-        if df is None or df.empty or "Close" not in df:
+        if df is None or df.empty:
             return None
         return df
     except Exception:
         return None
+
+# =====================
+# ADX calculation
+# =====================
+def calculate_adx(df, period=14):
+    high, low, close = df["High"], df["Low"], df["Close"]
+
+    plus_dm = high.diff()
+    minus_dm = low.diff().abs()
+
+    plus_dm[plus_dm < 0] = 0
+    minus_dm[minus_dm < 0] = 0
+
+    tr = pd.concat([
+        high - low,
+        (high - close.shift()).abs(),
+        (low - close.shift()).abs()
+    ], axis=1).max(axis=1)
+
+    atr = tr.rolling(period).mean()
+    plus_di = 100 * (plus_dm.rolling(period).mean() / atr)
+    minus_di = 100 * (minus_dm.rolling(period).mean() / atr)
+
+    dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+    adx = dx.rolling(period).mean()
+
+    return adx
 
 # =====================
 # Logic
@@ -66,69 +94,55 @@ def fetch_yfinance(ticker):
 for name, ticker in symbols.items():
     data = fetch_yfinance(ticker)
 
-    if data is None or len(data) < 50:
+    if data is None or len(data) < 60:
         data_failures.append(name)
         continue
 
     close = data["Close"].astype(float)
 
-    # =====================
-    # EMA 9
-    # =====================
-    ema9 = close.ewm(span=9, adjust=False).mean()
-    ema9_smooth = ema9.ewm(span=3, adjust=False).mean()
+    ema20 = close.ewm(span=20, adjust=False).mean()
+    ema50 = close.ewm(span=50, adjust=False).mean()
 
-    # =====================
-    # RSI Wilder
-    # =====================
+    # RSI
     delta = close.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
-
     avg_gain = gain.ewm(alpha=1/14, adjust=False).mean()
     avg_loss = loss.ewm(alpha=1/14, adjust=False).mean()
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
 
-    rsi_ma = rsi.ewm(span=5, adjust=False).mean()
+    adx = calculate_adx(data)
 
-    # =====================
-    # LAST VALUES
-    # =====================
-    price_last = float(close.iloc[-1])
-    ema9_last = float(ema9_smooth.iloc[-1])
-
+    price = float(close.iloc[-1])
     rsi_last = float(rsi.iloc[-1])
-    rsi_prev = float(rsi.iloc[-2])
-    rsi_ma_last = float(rsi_ma.iloc[-1])
-    rsi_ma_prev = float(rsi_ma.iloc[-2])
+    ema20_last = float(ema20.iloc[-1])
+    ema50_last = float(ema50.iloc[-1])
+    adx_last = float(adx.iloc[-1])
 
     # =====================
     # CONDITIONS (2 of 3)
     # =====================
     buy_conditions = [
-        38 <= rsi_last <= 45,
-        rsi_prev < rsi_ma_prev and rsi_last > rsi_ma_last,
-        price_last > ema9_last
+        40 <= rsi_last <= 48,
+        price > ema20_last and price <= ema50_last * 1.02,
+        adx_last < 20
     ]
 
     sell_conditions = [
-        60 <= rsi_last <= 68,
-        rsi_prev > rsi_ma_prev and rsi_last < rsi_ma_last,
-        price_last < ema9_last
+        55 <= rsi_last <= 62,
+        price < ema20_last,
+        adx_last < 20
     ]
 
-    # =====================
-    # SIGNAL DECISION
-    # =====================
     if sum(buy_conditions) >= 2:
         if last_signals.get(name) != "BUY":
-            alerts.append(f"🟢 شراء    {price_last:.2f}    {name}")
+            alerts.append(f"🟢 شراء    {price:.2f}    {name}")
             new_signals[name] = "BUY"
 
     elif sum(sell_conditions) >= 2:
         if last_signals.get(name) != "SELL":
-            alerts.append(f"🔴 بيع     {name}    {price_last:.2f}")
+            alerts.append(f"🔴 بيع     {price:.2f}    {name}")
             new_signals[name] = "SELL"
 
 # =====================
@@ -141,12 +155,9 @@ with open(SIGNALS_FILE, "w") as f:
 # Send alerts
 # =====================
 if alerts:
-    send_telegram("🚨 إشارات تنفيذ فوري:\n\n" + "\n".join(alerts))
+    send_telegram("🚨 إشارات يومية هادئة:\n\n" + "\n".join(alerts))
 else:
     send_telegram("ℹ️ لا توجد إشارات اليوم")
 
 if data_failures:
-    send_telegram(
-        "⚠️ فشل جلب البيانات:\n" +
-        ", ".join(data_failures)
-    )
+    send_telegram("⚠️ فشل جلب البيانات:\n" + ", ".join(data_failures))
