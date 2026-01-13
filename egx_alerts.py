@@ -1,4 +1,4 @@
-print("EGX ALERTS - STABLE ENTRY + FAST EXIT + PLAN B")
+print("EGX ALERTS - DAILY SWING TRADING (LOSS RECOVERY MODE)")
 
 import yfinance as yf
 import requests
@@ -23,12 +23,8 @@ def send_telegram(text):
 # =====================
 symbols = {
     "OFH": "OFH.CA","OLFI": "OLFI.CA","EMFD": "EMFD.CA","ETEL": "ETEL.CA",
-    "EAST": "EAST.CA","EFIH": "EFIH.CA","ABUK": "ABUK.CA","OIH": "OIH.CA",
-    "SWDY": "SWDY.CA","ISPH": "ISPH.CA","ATQA": "ATQA.CA","MTIE": "MTIE.CA",
-    "ELEC": "ELEC.CA","HRHO": "HRHO.CA","ORWE": "ORWE.CA","JUFO": "JUFO.CA",
-    "DSCW": "DSCW.CA","SUGR": "SUGR.CA","ELSH": "ELSH.CA","RMDA": "RMDA.CA",
-    "RAYA": "RAYA.CA","EEII": "EEII.CA","MPCO": "MPCO.CA","GBCO": "GBCO.CA",
-    "TMGH": "TMGH.CA","ORAS": "ORAS.CA","AMOC": "AMOC.CA","FWRY": "FWRY.CA"
+    "EAST": "EAST.CA","OIH": "OIH.CA","HRHO": "HRHO.CA","ORWE": "ORWE.CA","JUFO": "JUFO.CA",
+    "DSCW": "DSCW.CA","SUGR": "SUGR.CA","ELSH": "ELSH.CA","RMDA": "RMDA.CA","FWRY": "FWRY.CA"
 }
 
 alerts = []
@@ -60,13 +56,10 @@ def fetch_stooq(ticker):
         return None
 
 def get_price_data(ticker):
-    df = fetch_yfinance(ticker)
-    if df is not None:
-        return df
-    return fetch_stooq(ticker)
+    return fetch_yfinance(ticker) or fetch_stooq(ticker)
 
 # =====================
-# Logic
+# Logic (SWING TRADING)
 # =====================
 for name, ticker in symbols.items():
     data = get_price_data(ticker)
@@ -80,65 +73,48 @@ for name, ticker in symbols.items():
         close = close.iloc[:, 0]
     close = close.astype(float)
 
-    # EMAs
-    ema20 = close.ewm(span=20, adjust=False).mean()
-    ema50 = close.ewm(span=50, adjust=False).mean()
+    # EMA
     ema10 = close.ewm(span=10, adjust=False).mean()
-    ema30 = close.ewm(span=30, adjust=False).mean()
 
-    # =====================
-    # ✅ RSI (Wilder) + تنعيم خفيف
-    # =====================
+    # RSI Wilder + smoothing
     delta = close.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
 
     avg_gain = gain.ewm(alpha=1/14, adjust=False).mean()
     avg_loss = loss.ewm(alpha=1/14, adjust=False).mean()
-
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
-
-    # تنعيم خفيف جدًا
     rsi = rsi.ewm(span=3, adjust=False).mean()
 
-    # =====================
-    # Last values (float)
-    # =====================
-    ema20_prev = float(ema20.iloc[-2])
-    ema20_last = float(ema20.iloc[-1])
-    ema50_prev = float(ema50.iloc[-2])
-    ema50_last = float(ema50.iloc[-1])
-    ema10_prev = float(ema10.iloc[-2])
+    # Last values
+    price_last = float(close.iloc[-1])
     ema10_last = float(ema10.iloc[-1])
-    ema30_prev = float(ema30.iloc[-2])
-    ema30_last = float(ema30.iloc[-1])
-    rsi_last  = float(rsi.iloc[-1])
+    ema10_prev = float(ema10.iloc[-2])
+    rsi_last = float(rsi.iloc[-1])
 
-    ema_gap = abs(ema20_last - ema50_last) / ema50_last
+    # =====================
+    # 🟢 BUY (ارتداد مضاربي)
+    # =====================
+    if 30 <= rsi_last <= 40 and price_last >= ema10_last * 0.98:
+        alerts.append(f"🟢 مضاربة شراء: {name} | RSI={round(rsi_last,1)}")
 
-    # 🟢 BUY مبكر
-    if ema20_last < ema50_last and ema_gap < 0.015 and 40 <= rsi_last <= 55:
-        alerts.append(f"🟢 شراء مبكر: {name} | RSI={round(rsi_last,1)}")
-
-    # 📈 BUY مؤكد
-    if ema20_prev < ema50_prev and ema20_last > ema50_last and rsi_last >= 48:
-        alerts.append(f"📈 شراء: {name} | RSI={round(rsi_last,1)}")
-
-    # 📉 SELL سريع
-    if ema10_prev > ema30_prev and ema10_last < ema30_last and rsi_last <= 50:
-        alerts.append(f"📉 بيع سريع: {name} | RSI={round(rsi_last,1)}")
+    # =====================
+    # 📉 SELL (خروج سريع)
+    # =====================
+    if rsi_last >= 55 or price_last < ema10_last:
+        alerts.append(f"📉 مضاربة بيع: {name} | RSI={round(rsi_last,1)}")
 
 # =====================
 # Send alerts
 # =====================
 if alerts:
-    send_telegram("🚨 تنبيهات EGX:\n\n" + "\n".join(alerts))
+    send_telegram("🚨 تنبيهات مضاربة يومية:\n\n" + "\n".join(alerts))
 else:
-    send_telegram("ℹ️ لا توجد إشارات اليوم")
+    send_telegram("ℹ️ لا توجد فرص مضاربة اليوم")
 
 if data_failures:
     send_telegram(
         "⚠️ تحذير مصدر أسعار:\nفشل جلب البيانات للأسهم:\n" +
         ", ".join(data_failures)
-        )
+    )
