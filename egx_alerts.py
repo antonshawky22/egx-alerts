@@ -1,4 +1,4 @@
-print("EGX ALERTS - BUY / SELL ONLY (EMA 9 + RSI MA)")
+print("EGX ALERTS - BUY / SELL ONLY (EMA9 + RSI MA | 2 of 3)")
 
 import yfinance as yf
 import requests
@@ -55,12 +55,13 @@ for name, ticker in symbols.items():
     close = data["Close"].astype(float)
 
     # =====================
-    # EMA 9 (أسرع لكن ثابت)
+    # EMA 9 (منعم)
     # =====================
     ema9 = close.ewm(span=9, adjust=False).mean()
+    ema9_smooth = ema9.ewm(span=3, adjust=False).mean()
 
     # =====================
-    # RSI Wilder + Moving Average
+    # RSI Wilder
     # =====================
     delta = close.diff()
     gain = delta.clip(lower=0)
@@ -71,39 +72,48 @@ for name, ticker in symbols.items():
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
 
+    # RSI Moving Average (تنظيف الإشارة)
     rsi_ma = rsi.ewm(span=5, adjust=False).mean()
 
     # =====================
-    # Last values
+    # LAST VALUES
     # =====================
-    price_last = float(close.iloc[-1])
-    ema9_last = float(ema9.iloc[-1])
+    price = float(close.iloc[-1])
+    ema9_last = float(ema9_smooth.iloc[-1])
 
-    rsi_prev = float(rsi.iloc[-2])
     rsi_last = float(rsi.iloc[-1])
-    rsi_ma_prev = float(rsi_ma.iloc[-2])
+    rsi_prev = float(rsi.iloc[-2])
+
     rsi_ma_last = float(rsi_ma.iloc[-1])
+    rsi_ma_prev = float(rsi_ma.iloc[-2])
 
     # =====================
-    # 🟢 BUY NOW
+    # CONDITIONS (2 of 3)
     # =====================
-    if (
-        price_last > ema9_last
-        and rsi_last <= 40
-        and rsi_prev < rsi_ma_prev
-        and rsi_last > rsi_ma_last
-    ):
-        alerts.append(f"🟢 BUY NOW: {name} | RSI={round(rsi_last,1)}")
+    buy_conditions = [
+        38 <= rsi_last <= 45,
+        rsi_prev < rsi_ma_prev and rsi_last > rsi_ma_last,
+        price > ema9_last
+    ]
+
+    sell_conditions = [
+        60 <= rsi_last <= 68,
+        rsi_prev > rsi_ma_prev and rsi_last < rsi_ma_last,
+        price < ema9_last
+    ]
 
     # =====================
-    # 🔴 SELL NOW
+    # SIGNAL DECISION
     # =====================
-    elif (
-        price_last < ema9_last
-        or rsi_last >= 65
-        or (rsi_prev > rsi_ma_prev and rsi_last < rsi_ma_last)
-    ):
-        alerts.append(f"🔴 SELL NOW: {name} | RSI={round(rsi_last,1)}")
+    if sum(buy_conditions) >= 2:
+        alerts.append(
+            f"🟢 شراء فوري: {name} | RSI={round(rsi_last,1)}"
+        )
+
+    elif sum(sell_conditions) >= 2:
+        alerts.append(
+            f"🔴 بيع فوري: {name} | RSI={round(rsi_last,1)}"
+        )
 
 # =====================
 # Send alerts
