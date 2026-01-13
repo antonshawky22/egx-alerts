@@ -23,9 +23,13 @@ def send_telegram(text):
 # EGX symbols
 # =====================
 symbols = {
-    "OFH": "OFH.CA","EMFD": "EMFD.CA","ETEL": "ETEL.CA","EAST": "EAST.CA",
-    "OIH": "OIH.CA","ORWE": "ORWE.CA","JUFO": "JUFO.CA",
-    "SUGR": "SUGR.CA","ELSH": "ELSH.CA","RMDA": "RMDA.CA","FWRY": "FWRY.CA"
+    "OFH": "OFH.CA","OLFI": "OLFI.CA","EMFD": "EMFD.CA","ETEL": "ETEL.CA",
+    "EAST": "EAST.CA","EFIH": "EFIH.CA","ABUK": "ABUK.CA","OIH": "OIH.CA",
+    "SWDY": "SWDY.CA","ISPH": "ISPH.CA","ATQA": "ATQA.CA","MTIE": "MTIE.CA",
+    "ELEC": "ELEC.CA","HRHO": "HRHO.CA","ORWE": "ORWE.CA","JUFO": "JUFO.CA",
+    "DSCW": "DSCW.CA","SUGR": "SUGR.CA","ELSH": "ELSH.CA","RMDA": "RMDA.CA",
+    "RAYA": "RAYA.CA","EEII": "EEII.CA","MPCO": "MPCO.CA","GBCO": "GBCO.CA",
+    "TMGH": "TMGH.CA","ORAS": "ORAS.CA","AMOC": "AMOC.CA","FWRY": "FWRY.CA"
 }
 
 alerts = []
