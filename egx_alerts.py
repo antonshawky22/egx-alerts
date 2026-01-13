@@ -102,19 +102,22 @@ for name, ticker in symbols.items():
         price < ema9_last
     ]
 
-    # =====================
-    # SIGNAL DECISION
-    # =====================
-    if sum(buy_conditions) >= 2:
+ SIGNAL DECISION
+# =====================
+
+if sum(buy_conditions) >= 2:
+    if last_signals.get(name) != "BUY":
         alerts.append(
-    f"🟢 شراء    {price_last:.2f}    {name}"
-    )
+            f"🟢 شراء    {price_last:.2f}    {name}"
+        )
+        new_signals[name] = "BUY"
 
-    elif sum(sell_conditions) >= 2:
-   alerts.append(
-    f"🔴 بيع     {name}    {price_last:.2f}"
-    )     
-
+elif sum(sell_conditions) >= 2:
+    if last_signals.get(name) != "SELL":
+        alerts.append(
+            f"🔴 بيع     {name}    {price_last:.2f}"
+        )
+        new_signals[name] = "SELL"
 # =====================
 # Send alerts
 # =====================
