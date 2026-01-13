@@ -1,4 +1,4 @@
-print("EGX ALERTS - DAILY SWING TRADING (MULTI-DAY MODE)")
+print("EGX ALERTS - BUY / SELL ONLY (EMA 9 + RSI MA)")
 
 import yfinance as yf
 import requests
@@ -22,10 +22,9 @@ def send_telegram(text):
 # EGX symbols
 # =====================
 symbols = {
-    "OFH": "OFH.CA","OLFI": "OLFI.CA","EMFD": "EMFD.CA","ETEL": "ETEL.CA",
-    "EAST": "EAST.CA","OIH": "OIH.CA","HRHO": "HRHO.CA","ORWE": "ORWE.CA",
-    "JUFO": "JUFO.CA","DSCW": "DSCW.CA","SUGR": "SUGR.CA",
-    "ELSH": "ELSH.CA","RMDA": "RMDA.CA","FWRY": "FWRY.CA"
+    "OFH": "OFH.CA","EMFD": "EMFD.CA","ETEL": "ETEL.CA","EAST": "EAST.CA",
+    "OIH": "OIH.CA","ORWE": "ORWE.CA","JUFO": "JUFO.CA",
+    "SUGR": "SUGR.CA","ELSH": "ELSH.CA","RMDA": "RMDA.CA","FWRY": "FWRY.CA"
 }
 
 alerts = []
@@ -43,45 +42,26 @@ def fetch_yfinance(ticker):
     except Exception:
         return None
 
-def fetch_stooq(ticker):
-    try:
-        symbol = ticker.replace(".CA", "")
-        url = f"https://stooq.com/q/d/l/?s={symbol}&i=d"
-        df = pd.read_csv(url)
-        if df is None or df.empty or "Close" not in df:
-            return None
-        df["Date"] = pd.to_datetime(df["Date"])
-        df.set_index("Date", inplace=True)
-        return df
-    except Exception:
-        return None
-
-def get_price_data(ticker):
-    df = fetch_yfinance(ticker)
-    if df is not None:
-        return df
-    return fetch_stooq(ticker)
-
 # =====================
-# Logic (SWING TRADING)
+# Logic
 # =====================
 for name, ticker in symbols.items():
-    data = get_price_data(ticker)
+    data = fetch_yfinance(ticker)
 
-    if data is None or len(data) < 60:
+    if data is None or len(data) < 50:
         data_failures.append(name)
         continue
 
-    close = data["Close"]
-    if isinstance(close, pd.DataFrame):
-        close = close.iloc[:, 0]
-    close = close.astype(float)
+    close = data["Close"].astype(float)
 
-    # EMA
-    ema10 = close.ewm(span=10, adjust=False).mean()
-    ema20 = close.ewm(span=20, adjust=False).mean()
+    # =====================
+    # EMA 9 (أسرع لكن ثابت)
+    # =====================
+    ema9 = close.ewm(span=9, adjust=False).mean()
 
-    # RSI Wilder + light smoothing
+    # =====================
+    # RSI Wilder + Moving Average
+    # =====================
     delta = close.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
@@ -90,47 +70,51 @@ for name, ticker in symbols.items():
     avg_loss = loss.ewm(alpha=1/14, adjust=False).mean()
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
-    rsi = rsi.ewm(span=3, adjust=False).mean()
 
+    rsi_ma = rsi.ewm(span=5, adjust=False).mean()
+
+    # =====================
     # Last values
+    # =====================
     price_last = float(close.iloc[-1])
+    ema9_last = float(ema9.iloc[-1])
+
+    rsi_prev = float(rsi.iloc[-2])
     rsi_last = float(rsi.iloc[-1])
-    ema10_last = float(ema10.iloc[-1])
-    ema20_last = float(ema20.iloc[-1])
+    rsi_ma_prev = float(rsi_ma.iloc[-2])
+    rsi_ma_last = float(rsi_ma.iloc[-1])
 
     # =====================
-    # 🟢 BUY (Swing Entry)
+    # 🟢 BUY NOW
     # =====================
     if (
-        32 <= rsi_last <= 42 and
-        price_last >= ema10_last * 0.99 and
-        ema10_last <= ema20_last * 1.02
+        price_last > ema9_last
+        and rsi_last <= 40
+        and rsi_prev < rsi_ma_prev
+        and rsi_last > rsi_ma_last
     ):
-        alerts.append(
-            f"🟢 شراء سوينج: {name} | RSI={round(rsi_last,1)}"
-        )
+        alerts.append(f"🟢 BUY NOW: {name} | RSI={round(rsi_last,1)}")
 
     # =====================
-    # 📉 SELL (Swing Exit)
+    # 🔴 SELL NOW
     # =====================
-    if (
-        rsi_last >= 60 or
-        price_last < ema20_last
+    elif (
+        price_last < ema9_last
+        or rsi_last >= 65
+        or (rsi_prev > rsi_ma_prev and rsi_last < rsi_ma_last)
     ):
-        alerts.append(
-            f"📉 بيع سوينج: {name} | RSI={round(rsi_last,1)}"
-        )
+        alerts.append(f"🔴 SELL NOW: {name} | RSI={round(rsi_last,1)}")
 
 # =====================
 # Send alerts
 # =====================
 if alerts:
-    send_telegram("🚨 تنبيهات سوينج (عدة أيام):\n\n" + "\n".join(alerts))
+    send_telegram("🚨 إشارات تنفيذ فوري:\n\n" + "\n".join(alerts))
 else:
-    send_telegram("ℹ️ لا توجد فرص سوينج حالياً")
+    send_telegram("ℹ️ لا توجد إشارات اليوم")
 
 if data_failures:
     send_telegram(
-        "⚠️ تحذير مصدر أسعار:\nفشل جلب البيانات للأسهم:\n" +
+        "⚠️ فشل جلب البيانات:\n" +
         ", ".join(data_failures)
     )
