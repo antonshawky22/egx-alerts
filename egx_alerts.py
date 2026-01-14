@@ -1,4 +1,4 @@
-print("EGX ALERTS - BUY / SELL ONLY (EMA20/50 + RSI + ADX | 2 of 3)")
+print("EGX ALERTS - BUY / SELL ONLY (EMA FAST + OBV + RSI | 2 of 3)")
 
 import yfinance as yf
 import requests
@@ -62,37 +62,6 @@ def fetch_yfinance(ticker):
         return None
 
 # =====================
-# ADX calculation
-# =====================
-def calculate_adx(df, period=14):
-    high = df["High"]
-    low = df["Low"]
-    close = df["Close"]
-
-    plus_dm = high.diff()
-    minus_dm = low.diff().abs()
-
-    plus_dm[plus_dm < 0] = 0
-    minus_dm[minus_dm < 0] = 0
-
-    tr = pd.concat([
-        high - low,
-        (high - close.shift()).abs(),
-        (low - close.shift()).abs()
-    ], axis=1).max(axis=1)
-
-    atr = tr.rolling(period).mean()
-
-    plus_di = 100 * (plus_dm.rolling(period).mean() / atr)
-    minus_di = 100 * (minus_dm.rolling(period).mean() / atr)
-
-    dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
-    adx = dx.rolling(period).mean()
-
-    adx = adx.dropna()
-    return adx if not adx.empty else None
-
-# =====================
 # Logic
 # =====================
 for name, ticker in symbols.items():
@@ -103,11 +72,17 @@ for name, ticker in symbols.items():
         continue
 
     close = data["Close"].astype(float)
+    volume = data["Volume"].astype(float)
 
-    ema20 = close.ewm(span=20, adjust=False).mean()
-    ema50 = close.ewm(span=50, adjust=False).mean()
+    # =====================
+    # EMA FAST
+    # =====================
+    ema13 = close.ewm(span=13, adjust=False).mean()
+    ema21 = close.ewm(span=21, adjust=False).mean()
 
+    # =====================
     # RSI
+    # =====================
     delta = close.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
@@ -118,29 +93,35 @@ for name, ticker in symbols.items():
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
 
-    adx = calculate_adx(data)
-    if adx is None:
-        continue
-
-    price = float(close.iloc[-1])
-    rsi_last = float(rsi.dropna().iloc[-1])
-    ema20_last = float(ema20.iloc[-1])
-    ema50_last = float(ema50.iloc[-1])
-    adx_last = float(adx.iloc[-1])
+    # =====================
+    # OBV + FAST EMA
+    # =====================
+    obv = (np.sign(close.diff()) * volume).fillna(0).cumsum()
+    obv_ema = obv.ewm(span=10, adjust=False).mean()
 
     # =====================
-    # UPDATED CONDITIONS (2 of 3)
+    # LAST VALUES
+    # =====================
+    price = float(close.iloc[-1])
+    ema13_last = float(ema13.iloc[-1])
+    ema21_last = float(ema21.iloc[-1])
+    rsi_last = float(rsi.dropna().iloc[-1])
+    obv_last = float(obv.iloc[-1])
+    obv_ema_last = float(obv_ema.iloc[-1])
+
+    # =====================
+    # CONDITIONS (2 of 3)
     # =====================
     buy_conditions = [
-        38 <= rsi_last <= 50,
-        ema20_last > ema50_last * 0.98,   # اتجاه شبه محايد / بداية صعود
-        adx_last < 22
+        40 <= rsi_last <= 55,
+        ema13_last > ema21_last,
+        obv_last > obv_ema_last
     ]
 
     sell_conditions = [
-        52 <= rsi_last <= 65,
-        ema20_last < ema50_last * 1.02,   # اتجاه شبه محايد / بداية هبوط
-        adx_last < 22
+        50 <= rsi_last <= 65,
+        ema13_last < ema21_last,
+        obv_last < obv_ema_last
     ]
 
     if sum(buy_conditions) >= 2:
@@ -163,7 +144,7 @@ with open(SIGNALS_FILE, "w") as f:
 # Send alerts
 # =====================
 if alerts:
-    send_telegram("🚨 إشارات يومية هادئة:\n\n" + "\n".join(alerts))
+    send_telegram("🚨 إشارات يومية:\n\n" + "\n".join(alerts))
 else:
     send_telegram("ℹ️ لا توجد إشارات اليوم")
 
