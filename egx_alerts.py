@@ -74,15 +74,13 @@ for name, ticker in symbols.items():
     close = data["Close"].astype(float)
     volume = data["Volume"].astype(float)
 
-    # =====================
-    # EMA FAST
-    # =====================
+    candle_date = close.index[-1].date()  # 👈 تاريخ الشمعة
+
+    # EMA
     ema13 = close.ewm(span=13, adjust=False).mean()
     ema21 = close.ewm(span=21, adjust=False).mean()
 
-    # =====================
     # RSI
-    # =====================
     delta = close.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
@@ -93,15 +91,11 @@ for name, ticker in symbols.items():
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
 
-    # =====================
-    # OBV + FAST EMA
-    # =====================
+    # OBV
     obv = (np.sign(close.diff()) * volume).fillna(0).cumsum()
     obv_ema = obv.ewm(span=10, adjust=False).mean()
 
-    # =====================
     # LAST VALUES
-    # =====================
     price = float(close.iloc[-1])
     ema13_last = float(ema13.iloc[-1])
     ema21_last = float(ema21.iloc[-1])
@@ -109,9 +103,6 @@ for name, ticker in symbols.items():
     obv_last = float(obv.iloc[-1])
     obv_ema_last = float(obv_ema.iloc[-1])
 
-    # =====================
-    # CONDITIONS (2 of 3)
-    # =====================
     buy_conditions = [
         40 <= rsi_last <= 55,
         ema13_last > ema21_last,
@@ -126,12 +117,20 @@ for name, ticker in symbols.items():
 
     if sum(buy_conditions) >= 2:
         if last_signals.get(name) != "BUY":
-            alerts.append(f"🟢 شراء    {price:.2f}    {name}")
+            alerts.append(
+                f"🟢 شراء | {name}\n"
+                f"السعر: {price:.2f}\n"
+                f"تاريخ الشمعة: {candle_date}"
+            )
             new_signals[name] = "BUY"
 
     elif sum(sell_conditions) >= 2:
         if last_signals.get(name) != "SELL":
-            alerts.append(f"🔴 بيع     {price:.2f}    {name}")
+            alerts.append(
+                f"🔴 بيع | {name}\n"
+                f"السعر: {price:.2f}\n"
+                f"تاريخ الشمعة: {candle_date}"
+            )
             new_signals[name] = "SELL"
 
 # =====================
@@ -144,7 +143,7 @@ with open(SIGNALS_FILE, "w") as f:
 # Send alerts
 # =====================
 if alerts:
-    send_telegram("🚨 إشارات يومية:\n\n" + "\n".join(alerts))
+    send_telegram("🚨 إشارات يومية:\n\n" + "\n\n".join(alerts))
 else:
     send_telegram("ℹ️ لا توجد إشارات اليوم")
 
