@@ -6,7 +6,8 @@ import os
 import json
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
+import pytz
 
 # =====================
 # Telegram settings
@@ -51,41 +52,43 @@ else:
 new_signals = last_signals.copy()
 
 # =====================
-# Fetch data
+# Fetch data (SAFE DAILY CLOSE)
 # =====================
-def fetch_yfinance(ticker):
+def fetch_yfinance_safe(ticker):
     try:
         df = yf.download(ticker, period="6mo", interval="1d", progress=False)
         if df is None or df.empty:
             return None
+
+        # توحيد التوقيت على القاهرة
+        cairo = pytz.timezone("Africa/Cairo")
+        now = datetime.now(cairo).date()
+
+        # حذف شمعة اليوم (لو ظهرت)
+        df = df[df.index.date < now]
+
+        if len(df) < 70:
+            return None
+
         return df
+
     except Exception:
         return None
 
 # =====================
 # Logic
 # =====================
-today = datetime.now().date()
-max_allowed_gap = 3  # أيام مسموح بيها (ويك إند + عطلة)
-
 for name, ticker in symbols.items():
-    data = fetch_yfinance(ticker)
+    data = fetch_yfinance_safe(ticker)
 
-    if data is None or len(data) < 70:
+    if data is None:
         data_failures.append(name)
         continue
 
     close = data["Close"].astype(float)
     volume = data["Volume"].astype(float)
 
-    # ===== آخر شمعة مكتملة فقط =====
-    candle_date = close.index[-2].date()
-    price = float(close.iloc[-2])
-
-    # ===== تحقق يوم تداول فعلي =====
-    if (today - candle_date).days > max_allowed_gap:
-        data_failures.append(f"{name} (شمعة قديمة)")
-        continue
+    candle_date = close.index[-1].date()  # آخر شمعة مؤكدة فقط
 
     # EMA
     ema13 = close.ewm(span=13, adjust=False).mean()
@@ -106,23 +109,18 @@ for name, ticker in symbols.items():
     obv = (np.sign(close.diff()) * volume).fillna(0).cumsum()
     obv_ema = obv.ewm(span=10, adjust=False).mean()
 
-    # LAST VALUES (شمعة مكتملة)
-    ema13_last = float(ema13.iloc[-2])
-    ema21_last = float(ema21.iloc[-2])
-    rsi_last = float(rsi.dropna().iloc[-2])
-    obv_last = float(obv.iloc[-2])
-    obv_ema_last = float(obv_ema.iloc[-2])
+    price = float(close.iloc[-1])
 
     buy_conditions = [
-        40 <= rsi_last <= 55,
-        ema13_last > ema21_last,
-        obv_last > obv_ema_last
+        40 <= rsi.iloc[-1] <= 55,
+        ema13.iloc[-1] > ema21.iloc[-1],
+        obv.iloc[-1] > obv_ema.iloc[-1]
     ]
 
     sell_conditions = [
-        50 <= rsi_last <= 65,
-        ema13_last < ema21_last,
-        obv_last < obv_ema_last
+        50 <= rsi.iloc[-1] <= 65,
+        ema13.iloc[-1] < ema21.iloc[-1],
+        obv.iloc[-1] < obv_ema.iloc[-1]
     ]
 
     if sum(buy_conditions) >= 2 and last_signals.get(name) != "BUY":
@@ -142,18 +140,15 @@ for name, ticker in symbols.items():
         new_signals[name] = "SELL"
 
 # =====================
-# Save signals
+# Save & Send
 # =====================
 with open(SIGNALS_FILE, "w") as f:
     json.dump(new_signals, f)
 
-# =====================
-# Send alerts
-# =====================
 if alerts:
     send_telegram("🚨 إشارات يومية:\n\n" + "\n\n".join(alerts))
 else:
     send_telegram("ℹ️ لا توجد إشارات اليوم")
 
 if data_failures:
-    send_telegram("⚠️ تم تجاهل:\n" + ", ".join(data_failures))
+    send_telegram("⚠️ فشل جلب البيانات:\n" + ", ".join(data_failures))
