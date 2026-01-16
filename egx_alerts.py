@@ -62,24 +62,32 @@ def fetch_yfinance(ticker):
         return None
 
 # =====================
-# Logic
+# Main Logic
 # =====================
 for name, ticker in symbols.items():
     data = fetch_yfinance(ticker)
 
-    if data is None or len(data) < 70:
+    if data is None or len(data) < 60:
         data_failures.append(name)
         continue
 
     close = data["Close"].astype(float)
     volume = data["Volume"].astype(float)
+
     candle_date = close.index[-1].date()
 
+    # =====================
     # EMA
-    ema13 = close.ewm(span=13, adjust=False).mean()
-    ema21 = close.ewm(span=21, adjust=False).mean()
+    # =====================
+    ema_fast = close.ewm(span=13, adjust=False).mean()
+    ema_slow = close.ewm(span=21, adjust=False).mean()
 
-    # RSI
+    ema_fast_last = float(ema_fast.iloc[-1])
+    ema_slow_last = float(ema_slow.iloc[-1])
+
+    # =====================
+    # RSI 14
+    # =====================
     delta = close.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
@@ -90,57 +98,78 @@ for name, ticker in symbols.items():
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
 
-    # RSI SMA 7
     rsi_sma = rsi.rolling(7).mean()
 
+    # RSI values (SAFE)
+    rsi_prev = float(rsi.iloc[-2])
+    rsi_curr = float(rsi.iloc[-1])
+    rsi_sma_prev = float(rsi_sma.iloc[-2])
+    rsi_sma_curr = float(rsi_sma.iloc[-1])
+
+    # RSI Cross
+    rsi_cross_up = (rsi_prev < rsi_sma_prev) and (rsi_curr > rsi_sma_curr)
+    rsi_cross_down = (rsi_prev > rsi_sma_prev) and (rsi_curr < rsi_sma_curr)
+
+    # =====================
     # OBV
+    # =====================
     obv = (np.sign(close.diff()) * volume).fillna(0).cumsum()
     obv_ema = obv.ewm(span=10, adjust=False).mean()
 
-    # LAST VALUES
+    obv_last = float(obv.iloc[-1])
+    obv_ema_last = float(obv_ema.iloc[-1])
+
     price = float(close.iloc[-1])
 
-    # RSI CROSS
-    rsi_cross_up = rsi.iloc[-2] < rsi_sma.iloc[-2] and rsi.iloc[-1] > rsi_sma.iloc[-1]
-    rsi_cross_down = rsi.iloc[-2] > rsi_sma.iloc[-2] and rsi.iloc[-1] < rsi_sma.iloc[-1]
-
-    # CONDITIONS
+    # =====================
+    # Conditions
+    # =====================
     buy_conditions = [
-        rsi_cross_up and rsi.iloc[-1] < 40,
-        ema13.iloc[-1] > ema21.iloc[-1],
-        obv.iloc[-1] > obv_ema.iloc[-1]
+        ema_fast_last > ema_slow_last,
+        obv_last > obv_ema_last,
+        rsi_cross_up,
+        rsi_curr < 40
     ]
 
     sell_conditions = [
-        rsi_cross_down and rsi.iloc[-1] > 65,
-        ema13.iloc[-1] < ema21.iloc[-1],
-        obv.iloc[-1] < obv_ema.iloc[-1]
+        ema_fast_last < ema_slow_last,
+        obv_last < obv_ema_last,
+        rsi_cross_down,
+        rsi_curr > 65
     ]
 
-    if sum(buy_conditions) >= 2 and last_signals.get(name) != "BUY":
-        alerts.append(
-            f"🟢 شراء | {name}\n"
-            f"📅 شمعة: {candle_date}\n"
-            f"📊 سعر: {price:.2f}"
-        )
-        new_signals[name] = "BUY"
+    # =====================
+    # Signals
+    # =====================
+    if sum(bool(x) for x in buy_conditions) >= 3:
+        if last_signals.get(name) != "BUY":
+            alerts.append(
+                f"🟢 شراء | {name}\n"
+                f"السعر: {price:.2f}\n"
+                f"تاريخ الشمعة: {candle_date}"
+            )
+            new_signals[name] = "BUY"
 
-    elif sum(sell_conditions) >= 2 and last_signals.get(name) != "SELL":
-        alerts.append(
-            f"🔴 بيع | {name}\n"
-            f"📅 شمعة: {candle_date}\n"
-            f"📊 سعر: {price:.2f}"
-        )
-        new_signals[name] = "SELL"
+    elif sum(bool(x) for x in sell_conditions) >= 3:
+        if last_signals.get(name) != "SELL":
+            alerts.append(
+                f"🔴 بيع | {name}\n"
+                f"السعر: {price:.2f}\n"
+                f"تاريخ الشمعة: {candle_date}"
+            )
+            new_signals[name] = "SELL"
 
 # =====================
-# Save & Send
+# Save signals
 # =====================
 with open(SIGNALS_FILE, "w") as f:
     json.dump(new_signals, f)
 
+# =====================
+# Send alerts
+# =====================
 if alerts:
-    send_telegram("🚨 إشارات يومية:\n\n" + "\n\n".join(alerts))
+    send_telegram("🚨 إشارات EGX (SAFE MODE):\n\n" + "\n\n".join(alerts))
 else:
     send_telegram("ℹ️ لا توجد إشارات اليوم")
 
