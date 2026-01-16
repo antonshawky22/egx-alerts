@@ -1,4 +1,4 @@
-print("EGX ALERTS - DAILY CLOSE STRATEGY (EMA + RSI + OBV)")
+print("EGX ALERTS - BUY / SELL ONLY (EMA FAST + OBV + RSI | 2 of 3)")
 
 import yfinance as yf
 import requests
@@ -6,22 +6,23 @@ import os
 import json
 import pandas as pd
 import numpy as np
+from datetime import datetime, timedelta
 
 # =====================
-# Telegram
+# Telegram settings
 # =====================
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-def send_telegram(msg):
+def send_telegram(text):
     if not TOKEN or not CHAT_ID:
         print("Telegram ENV missing")
         return
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
+    requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
 # =====================
-# Symbols
+# EGX symbols
 # =====================
 symbols = {
     "OFH": "OFH.CA","OLFI": "OLFI.CA","EMFD": "EMFD.CA","ETEL": "ETEL.CA",
@@ -33,104 +34,126 @@ symbols = {
     "TMGH": "TMGH.CA","ORAS": "ORAS.CA","AMOC": "AMOC.CA","FWRY": "FWRY.CA"
 }
 
+alerts = []
+data_failures = []
+
 # =====================
-# State
+# Load last signals
 # =====================
 SIGNALS_FILE = "last_signals.json"
-last_signals = json.load(open(SIGNALS_FILE)) if os.path.exists(SIGNALS_FILE) else {}
+
+if os.path.exists(SIGNALS_FILE):
+    with open(SIGNALS_FILE, "r") as f:
+        last_signals = json.load(f)
+else:
+    last_signals = {}
+
 new_signals = last_signals.copy()
 
-alerts = []
-failures = []
-
 # =====================
-# Fetch Data
+# Fetch data
 # =====================
-def fetch_data(ticker):
+def fetch_yfinance(ticker):
     try:
         df = yf.download(ticker, period="6mo", interval="1d", progress=False)
-        if df is None or len(df) < 80:
+        if df is None or df.empty:
             return None
         return df
-    except:
+    except Exception:
         return None
 
 # =====================
 # Logic
 # =====================
+today = datetime.now().date()
+max_allowed_gap = 3  # أيام مسموح بيها (ويك إند + عطلة)
+
 for name, ticker in symbols.items():
-    df = fetch_data(ticker)
-    if df is None:
-        failures.append(name)
+    data = fetch_yfinance(ticker)
+
+    if data is None or len(data) < 70:
+        data_failures.append(name)
         continue
 
-    close = df["Close"].astype(float)
-    volume = df["Volume"].astype(float)
+    close = data["Close"].astype(float)
+    volume = data["Volume"].astype(float)
 
-    # 🔥 Gap filter
-    gap = abs(close.iloc[-1] - close.iloc[-2]) / close.iloc[-2] * 100
-    if gap > 7:
+    # ===== آخر شمعة مكتملة فقط =====
+    candle_date = close.index[-2].date()
+    price = float(close.iloc[-2])
+
+    # ===== تحقق يوم تداول فعلي =====
+    if (today - candle_date).days > max_allowed_gap:
+        data_failures.append(f"{name} (شمعة قديمة)")
         continue
-
-    candle_date = close.index[-1].date()
-    price = float(close.iloc[-1])
 
     # EMA
-    ema13 = close.ewm(span=13).mean()
-    ema21 = close.ewm(span=21).mean()
+    ema13 = close.ewm(span=13, adjust=False).mean()
+    ema21 = close.ewm(span=21, adjust=False).mean()
 
     # RSI
     delta = close.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
-    rs = gain.ewm(alpha=1/14).mean() / loss.ewm(alpha=1/14).mean()
+
+    avg_gain = gain.ewm(alpha=1/14, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1/14, adjust=False).mean()
+
+    rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
 
     # OBV
     obv = (np.sign(close.diff()) * volume).fillna(0).cumsum()
-    obv_ema = obv.ewm(span=10).mean()
+    obv_ema = obv.ewm(span=10, adjust=False).mean()
 
-    buy = [
-        40 <= rsi.iloc[-1] <= 55,
-        ema13.iloc[-1] > ema21.iloc[-1],
-        obv.iloc[-1] > obv_ema.iloc[-1]
+    # LAST VALUES (شمعة مكتملة)
+    ema13_last = float(ema13.iloc[-2])
+    ema21_last = float(ema21.iloc[-2])
+    rsi_last = float(rsi.dropna().iloc[-2])
+    obv_last = float(obv.iloc[-2])
+    obv_ema_last = float(obv_ema.iloc[-2])
+
+    buy_conditions = [
+        40 <= rsi_last <= 55,
+        ema13_last > ema21_last,
+        obv_last > obv_ema_last
     ]
 
-    sell = [
-        50 <= rsi.iloc[-1] <= 65,
-        ema13.iloc[-1] < ema21.iloc[-1],
-        obv.iloc[-1] < obv_ema.iloc[-1]
+    sell_conditions = [
+        50 <= rsi_last <= 65,
+        ema13_last < ema21_last,
+        obv_last < obv_ema_last
     ]
 
-    if sum(buy) >= 2 and last_signals.get(name) != "BUY":
+    if sum(buy_conditions) >= 2 and last_signals.get(name) != "BUY":
         alerts.append(
             f"🟢 شراء | {name}\n"
             f"📅 شمعة: {candle_date}\n"
-            f"📊 سعر : {price:.2f}"
+            f"📊 سعر  :  {price:.2f}"
         )
         new_signals[name] = "BUY"
 
-    elif sum(sell) >= 2 and last_signals.get(name) != "SELL":
+    elif sum(sell_conditions) >= 2 and last_signals.get(name) != "SELL":
         alerts.append(
             f"🔴 بيع | {name}\n"
             f"📅 شمعة: {candle_date}\n"
-            f"📊 سعر : {price:.2f}"
+            f"📊 سعر  :  {price:.2f}"
         )
         new_signals[name] = "SELL"
 
 # =====================
-# Save
+# Save signals
 # =====================
 with open(SIGNALS_FILE, "w") as f:
     json.dump(new_signals, f)
 
 # =====================
-# Telegram
+# Send alerts
 # =====================
 if alerts:
-    send_telegram("🚨 إشارات اليوم:\n\n" + "\n\n".join(alerts))
+    send_telegram("🚨 إشارات يومية:\n\n" + "\n\n".join(alerts))
 else:
     send_telegram("ℹ️ لا توجد إشارات اليوم")
 
-if failures:
-    send_telegram("⚠️ فشل جلب البيانات:\n" + ", ".join(failures))
+if data_failures:
+    send_telegram("⚠️ تم تجاهل:\n" + ", ".join(data_failures))
