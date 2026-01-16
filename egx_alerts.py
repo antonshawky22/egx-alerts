@@ -1,4 +1,4 @@
-print("EGX ALERTS - BUY / SELL ONLY (EMA FAST + OBV + RSI | 2 of 3)")
+print("EGX ALERTS - BUY / SELL ONLY (EMA FAST + OBV + RSI | 2 of 3 + TREND FILTER)")
 
 import yfinance as yf
 import requests
@@ -74,15 +74,15 @@ for name, ticker in symbols.items():
     close = data["Close"].astype(float)
     volume = data["Volume"].astype(float)
 
-    last_idx = -2  # ✅ آخر شمعة مكتملة فقط
+    candle_date = close.index[-1].date()
 
-    candle_date = close.index[last_idx].date()
-
-    # EMA
+    # =====================
+    # Indicators
+    # =====================
     ema13 = close.ewm(span=13, adjust=False).mean()
     ema21 = close.ewm(span=21, adjust=False).mean()
+    ema50 = close.ewm(span=50, adjust=False).mean()
 
-    # RSI
     delta = close.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
@@ -93,57 +93,56 @@ for name, ticker in symbols.items():
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
 
-    # OBV
     obv = (np.sign(close.diff()) * volume).fillna(0).cumsum()
     obv_ema = obv.ewm(span=10, adjust=False).mean()
 
-    # LAST VALUES (شمعة مكتملة)
-    price = float(close.iloc[last_idx])
-    ema13_last = float(ema13.iloc[last_idx])
-    ema21_last = float(ema21.iloc[last_idx])
-    rsi_last = float(rsi.iloc[last_idx])
-    obv_last = float(obv.iloc[last_idx])
-    obv_ema_last = float(obv_ema.iloc[last_idx])
+    # =====================
+    # Last values
+    # =====================
+    price = float(close.iloc[-1])
+    rsi_last = float(rsi.dropna().iloc[-1])
 
+    # =====================
+    # CONDITIONS
+    # =====================
     buy_conditions = [
         40 <= rsi_last <= 55,
-        ema13_last > ema21_last,
-        obv_last > obv_ema_last
+        ema13.iloc[-1] > ema21.iloc[-1],
+        obv.iloc[-1] > obv_ema.iloc[-1],
+        price > ema50.iloc[-1]          # فلترة الاتجاه
     ]
 
     sell_conditions = [
         50 <= rsi_last <= 65,
-        ema13_last < ema21_last,
-        obv_last < obv_ema_last
+        ema13.iloc[-1] < ema21.iloc[-1],
+        obv.iloc[-1] < obv_ema.iloc[-1],
+        price < ema50.iloc[-1]          # فلترة الاتجاه
     ]
 
-    if sum(buy_conditions) >= 2:
+    if sum(buy_conditions) >= 3:
         if last_signals.get(name) != "BUY":
             alerts.append(
                 f"🟢 شراء | {name}\n"
-                f"السعر: {price:.2f}\n"
-                f"تاريخ الشمعة: {candle_date}"
+                f"📊 السعر: {price:.2f}\n"
+                f"📅 تاريخ الشمعة: {candle_date}"
             )
             new_signals[name] = "BUY"
 
-    elif sum(sell_conditions) >= 2:
+    elif sum(sell_conditions) >= 3:
         if last_signals.get(name) != "SELL":
             alerts.append(
                 f"🔴 بيع | {name}\n"
-                f"السعر: {price:.2f}\n"
-                f"تاريخ الشمعة: {candle_date}"
+                f"📊 السعر: {price:.2f}\n"
+                f"📅 تاريخ الشمعة: {candle_date}"
             )
             new_signals[name] = "SELL"
 
 # =====================
-# Save signals
+# Save & Send
 # =====================
 with open(SIGNALS_FILE, "w") as f:
     json.dump(new_signals, f)
 
-# =====================
-# Send alerts
-# =====================
 if alerts:
     send_telegram("🚨 إشارات يومية:\n\n" + "\n\n".join(alerts))
 else:
