@@ -97,34 +97,39 @@ for name, ticker in symbols.items():
     obv_ema = obv.ewm(span=10, adjust=False).mean()
 
     # =====================
-    # Last values
+    # LAST VALUES (FLOAT)
     # =====================
     price = float(close.iloc[-1])
     rsi_last = float(rsi.dropna().iloc[-1])
+    ema13_last = float(ema13.iloc[-1])
+    ema21_last = float(ema21.iloc[-1])
+    ema50_last = float(ema50.iloc[-1])
+    obv_last = float(obv.iloc[-1])
+    obv_ema_last = float(obv_ema.iloc[-1])
 
     # =====================
     # CONDITIONS
     # =====================
     buy_conditions = [
         40 <= rsi_last <= 55,
-        ema13.iloc[-1] > ema21.iloc[-1],
-        obv.iloc[-1] > obv_ema.iloc[-1],
-        price > ema50.iloc[-1]          # فلترة الاتجاه
+        ema13_last > ema21_last,
+        obv_last > obv_ema_last,
+        price > ema50_last
     ]
 
     sell_conditions = [
         50 <= rsi_last <= 65,
-        ema13.iloc[-1] < ema21.iloc[-1],
-        obv.iloc[-1] < obv_ema.iloc[-1],
-        price < ema50.iloc[-1]          # فلترة الاتجاه
+        ema13_last < ema21_last,
+        obv_last < obv_ema_last,
+        price < ema50_last
     ]
 
     if sum(buy_conditions) >= 3:
         if last_signals.get(name) != "BUY":
             alerts.append(
                 f"🟢 شراء | {name}\n"
-                f"📊 السعر: {price:.2f}\n"
-                f"📅 تاريخ الشمعة: {candle_date}"
+                f"السعر: {price:.2f}\n"
+                f"تاريخ الشمعة: {candle_date}"
             )
             new_signals[name] = "BUY"
 
@@ -132,8 +137,8 @@ for name, ticker in symbols.items():
         if last_signals.get(name) != "SELL":
             alerts.append(
                 f"🔴 بيع | {name}\n"
-                f"📊 السعر: {price:.2f}\n"
-                f"📅 تاريخ الشمعة: {candle_date}"
+                f"السعر: {price:.2f}\n"
+                f"تاريخ الشمعة: {candle_date}"
             )
             new_signals[name] = "SELL"
 
