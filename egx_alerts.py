@@ -175,3 +175,12 @@ else:
 
 if data_failures:
     send_telegram("⚠️ فشل جلب البيانات:\n" + ", ".join(data_failures))
+
+from datetime import datetime
+
+send_telegram(
+    f"✅ البوت يعمل\n"
+    f"📅 التاريخ: {datetime.utcnow().date()}\n"
+    f"📊 إشارات: {len(alerts)}\n"
+    f"⚠️ فشل بيانات: {len(data_failures)}"
+)
