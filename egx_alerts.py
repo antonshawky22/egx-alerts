@@ -1,10 +1,11 @@
-print("EGX ALERTS - LuxAlgo Moving Average Converging (EXACT MATCH)")
+print("EGX ALERTS - LuxAlgo Moving Average Converging (TRADINGVIEW MATCH)")
 
 import yfinance as yf
 import requests
 import os
 import json
 import numpy as np
+import pandas as pd
 from datetime import datetime
 
 # =====================
@@ -17,7 +18,7 @@ def send_telegram(text):
     if not TOKEN or not CHAT_ID:
         return
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": text})
+    requests.post(url, data={"chat_id": CHAT_ID, "text": text}, timeout=10)
 
 # =====================
 # EGX symbols
@@ -36,29 +37,46 @@ symbols = {
 # LuxAlgo settings
 # =====================
 LENGTH = 80
-INCR = 12
-FAST = 12
-K = 1 / INCR
+INCR   = 12
+FAST   = 12
+K      = 1 / INCR
 
 # =====================
-# Load last signals
+# Load last signals (SAFE)
 # =====================
 SIGNALS_FILE = "last_signals.json"
-last_signals = json.load(open(SIGNALS_FILE)) if os.path.exists(SIGNALS_FILE) else {}
-new_signals = last_signals.copy()
+try:
+    with open(SIGNALS_FILE, "r") as f:
+        last_signals = json.load(f)
+except Exception:
+    last_signals = {}
 
+new_signals = last_signals.copy()
 alerts = []
 data_failures = []
 
 # =====================
-# Fetch data
+# Fetch data (ROBUST)
 # =====================
 def fetch_data(ticker):
     try:
-        df = yf.download(ticker, period="6mo", interval="1d", progress=False)
+        df = yf.download(
+            ticker,
+            period="6mo",
+            interval="1d",
+            auto_adjust=True,
+            progress=False
+        )
+
         if df is None or df.empty:
             return None
+
+        # Fix MultiIndex columns (yfinance bug)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+
         return df
+
     except Exception:
         return None
 
@@ -67,20 +85,22 @@ def fetch_data(ticker):
 # =====================
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
+
     if df is None or len(df) < LENGTH + 5:
         data_failures.append(name)
         continue
 
-    close = df["Close"].to_numpy(dtype=float)
-    high  = df["High"].to_numpy(dtype=float)
-    low   = df["Low"].to_numpy(dtype=float)
+    close = df["Close"].astype(float).to_numpy()
+    high  = df["High"].astype(float).to_numpy()
+    low   = df["Low"].astype(float).to_numpy()
 
-    ma    = np.zeros(len(close))
-    fma   = np.zeros(len(close))
+    ma  = np.zeros(len(close))
+    fma = np.zeros(len(close))
     alpha = np.zeros(len(close))
 
-    upper   = np.maximum.accumulate(high)
-    lower   = np.minimum.accumulate(low)
+    # Rolling extremes (TradingView behavior)
+    upper = np.maximum.accumulate(high)
+    lower = np.minimum.accumulate(low)
 
     init_ma = np.full(len(close), np.nan)
     for i in range(LENGTH - 1, len(close)):
@@ -90,6 +110,7 @@ for name, ticker in symbols.items():
         if i == 0 or np.isnan(init_ma[i]):
             ma[i] = close[i]
             fma[i] = close[i]
+            alpha[i] = 0
             continue
 
         cross = (
@@ -116,7 +137,7 @@ for name, ticker in symbols.items():
             fma[i] = min(close[i], fma[i-1]) + (close[i] - fma[i-1]) / FAST
 
     # =====================
-    # Signal logic
+    # Signal logic (EXACT TV)
     # =====================
     prev_state = last_signals.get(name)
     curr_state = "BUY" if fma[-1] > ma[-1] else "SELL"
