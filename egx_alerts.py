@@ -1,4 +1,4 @@
-print("EGX ALERTS - Moving Average Converging (LUX STYLE | SAFE TREND MODE)")
+print("EGX ALERTS - LuxAlgo Moving Average Converging (EXACT MATCH)")
 
 import yfinance as yf
 import requests
@@ -15,7 +15,6 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def send_telegram(text):
     if not TOKEN or not CHAT_ID:
-        print("Telegram ENV missing")
         return
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": text})
@@ -34,17 +33,20 @@ symbols = {
 }
 
 # =====================
+# LuxAlgo settings (FINAL)
+# =====================
+LENGTH = 80
+INCR = 12
+FAST = 12
+K = 1 / INCR
+
+# =====================
 # Load last signals
 # =====================
 SIGNALS_FILE = "last_signals.json"
-
-if os.path.exists(SIGNALS_FILE):
-    with open(SIGNALS_FILE, "r") as f:
-        last_signals = json.load(f)
-else:
-    last_signals = {}
-
+last_signals = json.load(open(SIGNALS_FILE)) if os.path.exists(SIGNALS_FILE) else {}
 new_signals = last_signals.copy()
+
 alerts = []
 data_failures = []
 
@@ -63,62 +65,69 @@ def fetch_data(ticker):
 # =====================
 # Main Logic
 # =====================
-EMA_PERIODS = [12, 24, 36, 48, 60, 72]
-
 for name, ticker in symbols.items():
-    data = fetch_data(ticker)
-
-    if data is None or len(data) < 100:
+    df = fetch_data(ticker)
+    if df is None or len(df) < LENGTH + 5:
         data_failures.append(name)
         continue
 
-    close = data["Close"].astype(float)
-    price = float(close.iloc[-1])
-    candle_date = close.index[-1].date()
+    close = df["Close"].astype(float)
+    high = df["High"].astype(float)
+    low = df["Low"].astype(float)
 
-    # ---- Calculate EMAs
-    emas = {p: close.ewm(span=p, adjust=False).mean() for p in EMA_PERIODS}
-    ema_last = {p: float(emas[p].iloc[-1]) for p in EMA_PERIODS}
+    ma = np.zeros(len(close))
+    fma = np.zeros(len(close))
+    alpha = np.zeros(len(close))
 
-    ema_values = list(ema_last.values())
-    ema_mean = np.mean(ema_values)
+    upper = high.rolling(LENGTH).max()
+    lower = low.rolling(LENGTH).min()
+    init_ma = close.rolling(LENGTH).mean()
 
-    # ---- Counts
-    below_price = sum(price > v for v in ema_values)
-    above_price = sum(price < v for v in ema_values)
+    for i in range(len(close)):
+        if i == 0 or np.isnan(init_ma[i]):
+            ma[i] = close[i]
+            fma[i] = close[i]
+            continue
 
-    # ---- Trend
-    fast_above_slow = ema_last[12] > ema_last[72]
-    fast_below_slow = ema_last[12] < ema_last[72]
+        cross = (
+            (close[i-1] <= ma[i-1] and close[i] > ma[i-1]) or
+            (close[i-1] >= ma[i-1] and close[i] < ma[i-1])
+        )
+
+        if cross:
+            alpha[i] = 2 / (LENGTH + 1)
+        elif close[i] > ma[i-1] and upper[i] > upper[i-1]:
+            alpha[i] = alpha[i-1] + K
+        elif close[i] < ma[i-1] and lower[i] < lower[i-1]:
+            alpha[i] = alpha[i-1] + K
+        else:
+            alpha[i] = alpha[i-1]
+
+        ma[i] = ma[i-1] + alpha[i-1] * (close[i] - ma[i-1])
+
+        if cross:
+            fma[i] = (close[i] + fma[i-1]) / 2
+        elif close[i] > ma[i]:
+            fma[i] = max(close[i], fma[i-1]) + (close[i] - fma[i-1]) / FAST
+        else:
+            fma[i] = min(close[i], fma[i-1]) + (close[i] - fma[i-1]) / FAST
 
     # =====================
-    # BUY / SELL Logic
+    # Signal logic (STATE CHANGE ONLY)
     # =====================
-    if (
-        price > ema_mean and
-        fast_above_slow and
-        below_price >= 4 and
-        last_signals.get(name) != "BUY"
-    ):
+    prev_state = last_signals.get(name)
+    curr_state = "BUY" if fma[-1] > ma[-1] else "SELL"
+
+    if curr_state != prev_state:
+        price = close.iloc[-1]
+        candle_date = close.index[-1].date()
+
         alerts.append(
-            f"🟢 BUY | {name}\n"
+            f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name}\n"
             f"Price: {price:.2f}\n"
             f"Date: {candle_date}"
         )
-        new_signals[name] = "BUY"
-
-    elif (
-        price < ema_mean and
-        fast_below_slow and
-        above_price >= 4 and
-        last_signals.get(name) != "SELL"
-    ):
-        alerts.append(
-            f"🔴 SELL | {name}\n"
-            f"Price: {price:.2f}\n"
-            f"Date: {candle_date}"
-        )
-        new_signals[name] = "SELL"
+        new_signals[name] = curr_state
 
 # =====================
 # Save signals
@@ -127,16 +136,16 @@ with open(SIGNALS_FILE, "w") as f:
     json.dump(new_signals, f)
 
 # =====================
-# Telegram messages
+# Telegram
 # =====================
 if alerts:
-    send_telegram("🚨 EGX Signals (MAC Converging SAFE):\n\n" + "\n\n".join(alerts))
+    send_telegram("🚨 EGX LuxAlgo Signals:\n\n" + "\n\n".join(alerts))
 else:
-    send_telegram("ℹ️ لا توجد إشارات اليوم – البوت يعمل")
+    send_telegram("ℹ️ لا توجد إشارات جديدة – الترند مستمر")
 
 send_telegram(
-    f"✅ البوت يعمل\n"
+    f"✅ Bot Running\n"
     f"📅 {datetime.utcnow().date()}\n"
-    f"📊 إشارات: {len(alerts)}\n"
-    f"⚠️ أخطاء بيانات: {len(data_failures)}"
-    )
+    f"📊 Signals: {len(alerts)}\n"
+    f"⚠️ Data Errors: {len(data_failures)}"
+            )
