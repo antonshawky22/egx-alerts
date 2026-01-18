@@ -91,28 +91,28 @@ for name, ticker in symbols.items():
         fma[i] = float(close.iloc[i])
         continue
 
-        cross = (
-            (close.iloc[i-1] <= ma[i-1] and close.iloc[i] > ma[i-1]) or
-            (close.iloc[i-1] >= ma[i-1] and close.iloc[i] < ma[i-1])
-        )
+    cross = (
+        (close.iloc[i-1] <= ma[i-1] and close.iloc[i] > ma[i-1]) or
+        (close.iloc[i-1] >= ma[i-1] and close.iloc[i] < ma[i-1])
+    )
 
-        if cross:
-            alpha[i] = 2 / (LENGTH + 1)
-        elif close.iloc[i] > ma[i-1] and upper.iloc[i] > upper.iloc[i-1]:
-            alpha[i] = alpha[i-1] + K
-        elif close.iloc[i] < ma[i-1] and lower.iloc[i] < lower.iloc[i-1]:
-            alpha[i] = alpha[i-1] + K
-        else:
-            alpha[i] = alpha[i-1]
+    if cross:
+        alpha[i] = 2 / (LENGTH + 1)
+    elif close.iloc[i] > ma[i-1] and upper.iloc[i] > upper.iloc[i-1]:
+        alpha[i] = alpha[i-1] + K
+    elif close.iloc[i] < ma[i-1] and lower.iloc[i] < lower.iloc[i-1]:
+        alpha[i] = alpha[i-1] + K
+    else:
+        alpha[i] = alpha[i-1]
 
-        ma[i] = ma[i-1] + alpha[i-1] * (close.iloc[i] - ma[i-1])
+    ma[i] = ma[i-1] + alpha[i-1] * (close.iloc[i] - ma[i-1])
 
-        if cross:
-            fma[i] = (close.iloc[i] + fma[i-1]) / 2
-        elif close.iloc[i] > ma[i]:
-            fma[i] = max(close.iloc[i], fma[i-1]) + (close.iloc[i] - fma[i-1]) / FAST
-        else:
-            fma[i] = min(close.iloc[i], fma[i-1]) + (close.iloc[i] - fma[i-1]) / FAST
+    if cross:
+        fma[i] = (close.iloc[i] + fma[i-1]) / 2
+    elif close.iloc[i] > ma[i]:
+        fma[i] = max(close.iloc[i], fma[i-1]) + (close.iloc[i] - fma[i-1]) / FAST
+    else:
+        fma[i] = min(close.iloc[i], fma[i-1]) + (close.iloc[i] - fma[i-1]) / FAST
 
     # =====================
     # Signal logic (STATE CHANGE ONLY)
