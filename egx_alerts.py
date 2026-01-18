@@ -84,35 +84,35 @@ for name, ticker in symbols.items():
     init_ma = close.rolling(LENGTH).mean()
 
     for i in range(len(close)):
-    init_val = float(init_ma.iloc[i])
+        init_val = float(init_ma.iloc[i]) if not np.isnan(init_ma.iloc[i]) else np.nan
 
-    if i == 0 or np.isnan(init_val):
-        ma[i]  = float(close.iloc[i])
-        fma[i] = float(close.iloc[i])
-        continue
+        if i == 0 or np.isnan(init_val):
+            ma[i]  = float(close.iloc[i])
+            fma[i] = float(close.iloc[i])
+            continue
 
-    cross = (
-        (close.iloc[i-1] <= ma[i-1] and close.iloc[i] > ma[i-1]) or
-        (close.iloc[i-1] >= ma[i-1] and close.iloc[i] < ma[i-1])
-    )
+        cross = (
+            (close.iloc[i-1] <= ma[i-1] and close.iloc[i] > ma[i-1]) or
+            (close.iloc[i-1] >= ma[i-1] and close.iloc[i] < ma[i-1])
+        )
 
-    if cross:
-        alpha[i] = 2 / (LENGTH + 1)
-    elif close.iloc[i] > ma[i-1] and upper.iloc[i] > upper.iloc[i-1]:
-        alpha[i] = alpha[i-1] + K
-    elif close.iloc[i] < ma[i-1] and lower.iloc[i] < lower.iloc[i-1]:
-        alpha[i] = alpha[i-1] + K
-    else:
-        alpha[i] = alpha[i-1]
+        if cross:
+            alpha[i] = 2 / (LENGTH + 1)
+        elif close.iloc[i] > ma[i-1] and upper.iloc[i] > upper.iloc[i-1]:
+            alpha[i] = alpha[i-1] + K
+        elif close.iloc[i] < ma[i-1] and lower.iloc[i] < lower.iloc[i-1]:
+            alpha[i] = alpha[i-1] + K
+        else:
+            alpha[i] = alpha[i-1]
 
-    ma[i] = ma[i-1] + alpha[i-1] * (close.iloc[i] - ma[i-1])
+        ma[i] = ma[i-1] + alpha[i-1] * (close.iloc[i] - ma[i-1])
 
-    if cross:
-        fma[i] = (close.iloc[i] + fma[i-1]) / 2
-    elif close.iloc[i] > ma[i]:
-        fma[i] = max(close.iloc[i], fma[i-1]) + (close.iloc[i] - fma[i-1]) / FAST
-    else:
-        fma[i] = min(close.iloc[i], fma[i-1]) + (close.iloc[i] - fma[i-1]) / FAST
+        if cross:
+            fma[i] = (close.iloc[i] + fma[i-1]) / 2
+        elif close.iloc[i] > ma[i]:
+            fma[i] = max(close.iloc[i], fma[i-1]) + (close.iloc[i] - fma[i-1]) / FAST
+        else:
+            fma[i] = min(close.iloc[i], fma[i-1]) + (close.iloc[i] - fma[i-1]) / FAST
 
     # =====================
     # Signal logic (STATE CHANGE ONLY)
@@ -150,4 +150,4 @@ send_telegram(
     f"📅 {datetime.utcnow().date()}\n"
     f"📊 Signals: {len(alerts)}\n"
     f"⚠️ Data Errors: {len(data_failures)}"
-        )
+)
