@@ -84,10 +84,12 @@ for name, ticker in symbols.items():
     init_ma = close.rolling(LENGTH).mean()
 
     for i in range(len(close)):
-        if i == 0 or np.isnan(init_ma.iloc[i]):
-            ma[i]  = close.iloc[i]
-            fma[i] = close.iloc[i]
-            continue
+    init_val = float(init_ma.iloc[i])
+
+    if i == 0 or np.isnan(init_val):
+        ma[i]  = float(close.iloc[i])
+        fma[i] = float(close.iloc[i])
+        continue
 
         cross = (
             (close.iloc[i-1] <= ma[i-1] and close.iloc[i] > ma[i-1]) or
