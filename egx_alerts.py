@@ -33,7 +33,7 @@ symbols = {
 }
 
 # =====================
-# LuxAlgo settings (FINAL)
+# LuxAlgo settings
 # =====================
 LENGTH = 80
 INCR = 12
@@ -71,63 +71,61 @@ for name, ticker in symbols.items():
         data_failures.append(name)
         continue
 
-    close = df["Close"].astype(float)
-    high  = df["High"].astype(float)
-    low   = df["Low"].astype(float)
+    close = df["Close"].to_numpy(dtype=float)
+    high  = df["High"].to_numpy(dtype=float)
+    low   = df["Low"].to_numpy(dtype=float)
 
     ma    = np.zeros(len(close))
     fma   = np.zeros(len(close))
     alpha = np.zeros(len(close))
 
-    upper   = high.rolling(LENGTH).max()
-    lower   = low.rolling(LENGTH).min()
-    init_ma = close.rolling(LENGTH).mean()
+    upper   = np.maximum.accumulate(high)
+    lower   = np.minimum.accumulate(low)
+
+    init_ma = np.full(len(close), np.nan)
+    for i in range(LENGTH - 1, len(close)):
+        init_ma[i] = np.mean(close[i - LENGTH + 1:i + 1])
 
     for i in range(len(close)):
-        init_val = float(init_ma.iloc[i]) if not np.isnan(init_ma.iloc[i]) else np.nan
-
-        if i == 0 or np.isnan(init_val):
-            ma[i]  = float(close.iloc[i])
-            fma[i] = float(close.iloc[i])
+        if i == 0 or np.isnan(init_ma[i]):
+            ma[i] = close[i]
+            fma[i] = close[i]
             continue
 
         cross = (
-            (close.iloc[i-1] <= ma[i-1] and close.iloc[i] > ma[i-1]) or
-            (close.iloc[i-1] >= ma[i-1] and close.iloc[i] < ma[i-1])
+            (close[i-1] <= ma[i-1] and close[i] > ma[i-1]) or
+            (close[i-1] >= ma[i-1] and close[i] < ma[i-1])
         )
 
         if cross:
             alpha[i] = 2 / (LENGTH + 1)
-        elif close.iloc[i] > ma[i-1] and upper.iloc[i] > upper.iloc[i-1]:
+        elif close[i] > ma[i-1] and upper[i] > upper[i-1]:
             alpha[i] = alpha[i-1] + K
-        elif close.iloc[i] < ma[i-1] and lower.iloc[i] < lower.iloc[i-1]:
+        elif close[i] < ma[i-1] and lower[i] < lower[i-1]:
             alpha[i] = alpha[i-1] + K
         else:
             alpha[i] = alpha[i-1]
 
-        ma[i] = ma[i-1] + alpha[i-1] * (close.iloc[i] - ma[i-1])
+        ma[i] = ma[i-1] + alpha[i-1] * (close[i] - ma[i-1])
 
         if cross:
-            fma[i] = (close.iloc[i] + fma[i-1]) / 2
-        elif close.iloc[i] > ma[i]:
-            fma[i] = max(close.iloc[i], fma[i-1]) + (close.iloc[i] - fma[i-1]) / FAST
+            fma[i] = (close[i] + fma[i-1]) / 2
+        elif close[i] > ma[i]:
+            fma[i] = max(close[i], fma[i-1]) + (close[i] - fma[i-1]) / FAST
         else:
-            fma[i] = min(close.iloc[i], fma[i-1]) + (close.iloc[i] - fma[i-1]) / FAST
+            fma[i] = min(close[i], fma[i-1]) + (close[i] - fma[i-1]) / FAST
 
     # =====================
-    # Signal logic (STATE CHANGE ONLY)
+    # Signal logic
     # =====================
     prev_state = last_signals.get(name)
     curr_state = "BUY" if fma[-1] > ma[-1] else "SELL"
 
     if curr_state != prev_state:
-        price = close.iloc[-1]
-        candle_date = close.index[-1].date()
-
         alerts.append(
             f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name}\n"
-            f"Price: {price:.2f}\n"
-            f"Date: {candle_date}"
+            f"Price: {close[-1]:.2f}\n"
+            f"Date: {df.index[-1].date()}"
         )
         new_signals[name] = curr_state
 
