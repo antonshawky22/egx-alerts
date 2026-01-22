@@ -142,6 +142,8 @@ rsi_log.append({
             f"Date: {df.index[-1].date()}"
         )
         new_signals[name] = curr_state
+        with open("rsi_snapshot.json", "w") as f:
+    json.dump(rsi_log, f, indent=2)
 
 # =====================
 # Save signals
