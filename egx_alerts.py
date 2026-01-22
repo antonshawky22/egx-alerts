@@ -102,7 +102,7 @@ for name, ticker in symbols.items():
     df["EMA75"] = ema(close, 75)
     df["RSI6"]  = rsi(close, 6)
 
-    # لازم نتأكد إن في على الأقل شمعتين
+    # تأكد من وجود على الأقل شمعتين
     if len(df) < 2:
         data_failures.append(name)
         continue
@@ -110,12 +110,20 @@ for name, ticker in symbols.items():
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
-    # ✅ تسجيل RSI دايمًا
+    # =====================
+    # تسجيل RSI حتى لو NaN
+    # =====================
+    rsi_value = last["RSI6"]
+    if pd.isna(rsi_value):
+        rsi_value = None
+    else:
+        rsi_value = round(float(rsi_value), 2)
+
     rsi_log.append({
         "symbol": name,
         "date": str(df.index[-1].date()),
         "close": round(float(last["Close"]), 2),
-        "rsi6": round(float(last["RSI6"]), 2)
+        "rsi6": rsi_value
     })
 
     # ===== الإشارات فقط تحتاج بيانات كفاية =====
@@ -179,4 +187,4 @@ send_telegram(
     f"📊 Signals: {len(alerts)}\n"
     f"📈 RSI Logged: {len(rsi_log)}\n"
     f"⚠️ Data Errors: {len(data_failures)}"
-    )
+)
