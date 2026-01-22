@@ -1,4 +1,4 @@
-print("EGX ALERTS - LuxAlgo Moving Average Converging (TRADINGVIEW MATCH)")
+print("EGX ALERTS - RSI Reversal Strategy (DAILY)")
 
 import yfinance as yf
 import requests
@@ -34,15 +34,7 @@ symbols = {
 }
 
 # =====================
-# LuxAlgo settings
-# =====================
-LENGTH = 80
-INCR   = 12
-FAST   = 12
-K      = 1 / INCR
-
-# =====================
-# Load last signals (SAFE)
+# Load last signals
 # =====================
 SIGNALS_FILE = "last_signals.json"
 try:
@@ -56,7 +48,22 @@ alerts = []
 data_failures = []
 
 # =====================
-# Fetch data (ROBUST)
+# Indicators
+# =====================
+def ema(series, period):
+    return series.ewm(span=period, adjust=False).mean()
+
+def rsi(series, period=6):
+    delta = series.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.rolling(period).mean()
+    avg_loss = loss.rolling(period).mean()
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
+
+# =====================
+# Fetch data
 # =====================
 def fetch_data(ticker):
     try:
@@ -67,16 +74,11 @@ def fetch_data(ticker):
             auto_adjust=True,
             progress=False
         )
-
         if df is None or df.empty:
             return None
-
-        # Fix MultiIndex columns (yfinance bug)
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
-
         return df
-
     except Exception:
         return None
 
@@ -86,66 +88,47 @@ def fetch_data(ticker):
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
 
-    if df is None or len(df) < LENGTH + 5:
+    if df is None or len(df) < 80:
         data_failures.append(name)
         continue
 
-    close = df["Close"].astype(float).to_numpy()
-    high  = df["High"].astype(float).to_numpy()
-    low   = df["Low"].astype(float).to_numpy()
+    close = df["Close"]
 
-    ma  = np.zeros(len(close))
-    fma = np.zeros(len(close))
-    alpha = np.zeros(len(close))
+    df["EMA6"]  = ema(close, 6)
+    df["EMA10"] = ema(close, 10)
+    df["EMA75"] = ema(close, 75)
+    df["RSI6"]  = rsi(close, 6)
 
-    # Rolling extremes (TradingView behavior)
-    upper = np.maximum.accumulate(high)
-    lower = np.minimum.accumulate(low)
+    last = df.iloc[-1]
+    prev = df.iloc[-2]
 
-    init_ma = np.full(len(close), np.nan)
-    for i in range(LENGTH - 1, len(close)):
-        init_ma[i] = np.mean(close[i - LENGTH + 1:i + 1])
-
-    for i in range(len(close)):
-        if i == 0 or np.isnan(init_ma[i]):
-            ma[i] = close[i]
-            fma[i] = close[i]
-            alpha[i] = 0
-            continue
-
-        cross = (
-            (close[i-1] <= ma[i-1] and close[i] > ma[i-1]) or
-            (close[i-1] >= ma[i-1] and close[i] < ma[i-1])
-        )
-
-        if cross:
-            alpha[i] = 2 / (LENGTH + 1)
-        elif close[i] > ma[i-1] and upper[i] > upper[i-1]:
-            alpha[i] = alpha[i-1] + K
-        elif close[i] < ma[i-1] and lower[i] < lower[i-1]:
-            alpha[i] = alpha[i-1] + K
-        else:
-            alpha[i] = alpha[i-1]
-
-        ma[i] = ma[i-1] + alpha[i-1] * (close[i] - ma[i-1])
-
-        if cross:
-            fma[i] = (close[i] + fma[i-1]) / 2
-        elif close[i] > ma[i]:
-            fma[i] = max(close[i], fma[i-1]) + (close[i] - fma[i-1]) / FAST
-        else:
-            fma[i] = min(close[i], fma[i-1]) + (close[i] - fma[i-1]) / FAST
-
-    # =====================
-    # Signal logic (EXACT TV)
-    # =====================
     prev_state = last_signals.get(name)
-    curr_state = "BUY" if fma[-1] > ma[-1] else "SELL"
+
+    # 🟢 BUY
+    buy_signal = (
+        last["RSI6"] <= 50 and
+        last["Close"] > last["EMA75"]
+    )
+
+    # 🔴 SELL
+    sell_signal = (
+        (prev["EMA6"] >= prev["EMA10"] and last["EMA6"] < last["EMA10"]) or
+        (prev["RSI6"] >= 50 and last["RSI6"] < 50) or
+        (prev["Close"] >= prev["EMA75"] and last["Close"] < last["EMA75"])
+    )
+
+    if buy_signal:
+        curr_state = "BUY"
+    elif sell_signal:
+        curr_state = "SELL"
+    else:
+        continue
 
     if curr_state != prev_state:
         alerts.append(
             f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name}\n"
-            f"Price: {close[-1]:.2f}\n"
+            f"Price: {last['Close']:.2f}\n"
+            f"RSI6: {last['RSI6']:.1f}\n"
             f"Date: {df.index[-1].date()}"
         )
         new_signals[name] = curr_state
@@ -160,13 +143,13 @@ with open(SIGNALS_FILE, "w") as f:
 # Telegram
 # =====================
 if alerts:
-    send_telegram("🚨 EGX LuxAlgo Signals:\n\n" + "\n\n".join(alerts))
+    send_telegram("🚨 EGX Reversal Signals:\n\n" + "\n\n".join(alerts))
 else:
-    send_telegram("ℹ️ لا توجد إشارات جديدة – الترند مستمر")
+    send_telegram("ℹ️ لا توجد إشارات جديدة")
 
 send_telegram(
     f"✅ Bot Running\n"
     f"📅 {datetime.utcnow().date()}\n"
     f"📊 Signals: {len(alerts)}\n"
     f"⚠️ Data Errors: {len(data_failures)}"
-)
+    )
