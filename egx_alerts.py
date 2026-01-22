@@ -86,12 +86,11 @@ def fetch_data(ticker):
 # =====================
 # Main Logic
 # =====================
-rsi_log = []
-
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
 
-    if df is None:
+    if df is None or len(df) < 6:
+        print(name, "لا توجد بيانات كافية")
         data_failures.append(name)
         continue
 
@@ -102,30 +101,22 @@ for name, ticker in symbols.items():
     df["EMA75"] = ema(close, 75)
     df["RSI6"]  = rsi(close, 6)
 
-    # =====================
-    # تسجيل RSI لكل شمعة
-    # =====================
-    for i in range(len(df)):
-        rsi_value = df["RSI6"].iloc[i]
-        if pd.isna(rsi_value):
-            rsi_value = None
-        else:
-            rsi_value = float(rsi_value)
-        rsi_log.append({
-            "symbol": name,
-            "date": str(df.index[i].date()),
-            "close": float(df["Close"].iloc[i]),
-            "rsi6": rsi_value
-        })
+    last = df.iloc[-1]
+    prev = df.iloc[-2]
 
     # =====================
-    # إشارات BUY/SELL تحتاج على الأقل 80 شمعة
+    # طباعة آخر RSI6 لكل سهم
+    # =====================
+    last_rsi = last["RSI6"]
+    last_close = last["Close"]
+    print(f"{name} | آخر سعر: {last_close:.2f} | RSI6: {last_rsi:.2f}")
+
+    # =====================
+    # إشارات BUY/SELL فقط للأسهم اللي فيها 80 شمعة على الأقل
     # =====================
     if len(df) < 80:
         continue
 
-    last = df.iloc[-1]
-    prev = df.iloc[-2]
     prev_state = last_signals.get(name)
 
     # 🟢 BUY
@@ -158,12 +149,6 @@ for name, ticker in symbols.items():
         new_signals[name] = curr_state
 
 # =====================
-# Save RSI snapshot
-# =====================
-with open("rsi_snapshot.json", "w") as f:
-    json.dump(rsi_log, f, indent=2)
-
-# =====================
 # Save signals
 # =====================
 with open(SIGNALS_FILE, "w") as f:
@@ -181,6 +166,5 @@ send_telegram(
     f"✅ Bot Running\n"
     f"📅 {datetime.utcnow().date()}\n"
     f"📊 Signals: {len(alerts)}\n"
-    f"📈 RSI Logged: {len(rsi_log)}\n"
     f"⚠️ Data Errors: {len(data_failures)}"
-)
+    )
