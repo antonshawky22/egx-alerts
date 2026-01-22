@@ -4,7 +4,6 @@ import yfinance as yf
 import requests
 import os
 import json
-import numpy as np
 import pandas as pd
 from datetime import datetime
 
@@ -92,7 +91,7 @@ rsi_log = []
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
 
-    if df is None or len(df) < 80:
+    if df is None:
         data_failures.append(name)
         continue
 
@@ -103,16 +102,25 @@ for name, ticker in symbols.items():
     df["EMA75"] = ema(close, 75)
     df["RSI6"]  = rsi(close, 6)
 
+    # لازم نتأكد إن في على الأقل شمعتين
+    if len(df) < 2:
+        data_failures.append(name)
+        continue
+
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
-    # تسجيل RSI على آخر شمعة
+    # ✅ تسجيل RSI دايمًا
     rsi_log.append({
         "symbol": name,
         "date": str(df.index[-1].date()),
-        "close": round(last["Close"], 2),
-        "rsi6": round(last["RSI6"], 2)
+        "close": round(float(last["Close"]), 2),
+        "rsi6": round(float(last["RSI6"]), 2)
     })
+
+    # ===== الإشارات فقط تحتاج بيانات كفاية =====
+    if len(df) < 80:
+        continue
 
     prev_state = last_signals.get(name)
 
@@ -169,5 +177,6 @@ send_telegram(
     f"✅ Bot Running\n"
     f"📅 {datetime.utcnow().date()}\n"
     f"📊 Signals: {len(alerts)}\n"
+    f"📈 RSI Logged: {len(rsi_log)}\n"
     f"⚠️ Data Errors: {len(data_failures)}"
-)
+    )
