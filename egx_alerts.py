@@ -57,7 +57,6 @@ def rsi(series, period=6):
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
 
-    # EMA-based smoothing → قريب من TradingView
     avg_gain = gain.ewm(alpha=1/period, adjust=False).mean()
     avg_loss = loss.ewm(alpha=1/period, adjust=False).mean()
 
@@ -103,34 +102,30 @@ for name, ticker in symbols.items():
     df["EMA75"] = ema(close, 75)
     df["RSI6"]  = rsi(close, 6)
 
-    # تأكد من وجود على الأقل شمعتين
-    if len(df) < 2:
-        data_failures.append(name)
+    # =====================
+    # تسجيل RSI لكل شمعة
+    # =====================
+    for i in range(len(df)):
+        rsi_value = df["RSI6"].iloc[i]
+        if pd.isna(rsi_value):
+            rsi_value = None
+        else:
+            rsi_value = float(rsi_value)
+        rsi_log.append({
+            "symbol": name,
+            "date": str(df.index[i].date()),
+            "close": float(df["Close"].iloc[i]),
+            "rsi6": rsi_value
+        })
+
+    # =====================
+    # إشارات BUY/SELL تحتاج على الأقل 80 شمعة
+    # =====================
+    if len(df) < 80:
         continue
 
     last = df.iloc[-1]
     prev = df.iloc[-2]
-
-    # =====================
-    # تسجيل RSI حتى لو NaN → json يقبل None
-    # =====================
-    rsi_value = last["RSI6"]
-    if pd.isna(rsi_value):
-        rsi_value = None
-    else:
-        rsi_value = float(rsi_value)
-
-    rsi_log.append({
-        "symbol": name,
-        "date": str(df.index[-1].date()),
-        "close": float(last["Close"]),
-        "rsi6": rsi_value
-    })
-
-    # ===== الإشارات فقط تحتاج بيانات كفاية (80 شمعة) =====
-    if len(df) < 80:
-        continue
-
     prev_state = last_signals.get(name)
 
     # 🟢 BUY
