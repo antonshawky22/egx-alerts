@@ -86,11 +86,12 @@ def fetch_data(ticker):
 # =====================
 # Main Logic
 # =====================
+rsi_log = []
+
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
 
     if df is None or len(df) < 6:
-        print(name, "لا توجد بيانات كافية")
         data_failures.append(name)
         continue
 
@@ -105,14 +106,21 @@ for name, ticker in symbols.items():
     prev = df.iloc[-2]
 
     # =====================
-    # طباعة آخر RSI6 لكل سهم
+    # سجل كل RSI6 لكل سهم في رسالة واحدة
     # =====================
     last_rsi = last["RSI6"]
     last_close = last["Close"]
-    print(f"{name} | آخر سعر: {last_close:.2f} | RSI6: {last_rsi:.2f}")
+    rsi_message = f"{name} | آخر سعر: {last_close:.2f} | RSI6: {last_rsi:.2f}"
+    send_telegram(rsi_message)  # هيوصل لك على التليجرام مباشرة
+    rsi_log.append({
+        "symbol": name,
+        "date": str(df.index[-1].date()),
+        "close": float(last_close),
+        "rsi6": float(last_rsi)
+    })
 
     # =====================
-    # إشارات BUY/SELL فقط للأسهم اللي فيها 80 شمعة على الأقل
+    # إشارات BUY/SELL للأسهم اللي فيها 80 شمعة على الأقل
     # =====================
     if len(df) < 80:
         continue
@@ -149,13 +157,19 @@ for name, ticker in symbols.items():
         new_signals[name] = curr_state
 
 # =====================
+# Save RSI snapshot (اختياري)
+# =====================
+with open("rsi_snapshot.json", "w") as f:
+    json.dump(rsi_log, f, indent=2)
+
+# =====================
 # Save signals
 # =====================
 with open(SIGNALS_FILE, "w") as f:
     json.dump(new_signals, f)
 
 # =====================
-# Telegram
+# Telegram summary
 # =====================
 if alerts:
     send_telegram("🚨 EGX Reversal Signals:\n\n" + "\n\n".join(alerts))
