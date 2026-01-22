@@ -89,6 +89,7 @@ def fetch_data(ticker):
 # =====================
 # Main Logic
 # =====================
+rsi_log = []
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
 
@@ -105,7 +106,12 @@ for name, ticker in symbols.items():
 
     last = df.iloc[-1]
     prev = df.iloc[-2]
-
+rsi_log.append({
+    "symbol": name,
+    "date": str(df.index[-1].date()),
+    "close": round(last["Close"], 2),
+    "rsi6": round(last["RSI6"], 2)
+})
     prev_state = last_signals.get(name)
 
     # 🟢 BUY
