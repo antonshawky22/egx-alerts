@@ -58,13 +58,11 @@ def rsi(series, period=6):
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
 
-    # EMA-based RSI للحصول على استجابة أسرع وأكثر دقة
     avg_gain = gain.ewm(alpha=1/period, adjust=False).mean()
     avg_loss = loss.ewm(alpha=1/period, adjust=False).mean()
 
     rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
+    return 100 - (100 / (1 + rs))
 
 # =====================
 # Fetch data
@@ -90,6 +88,7 @@ def fetch_data(ticker):
 # Main Logic
 # =====================
 rsi_log = []
+
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
 
@@ -106,12 +105,15 @@ for name, ticker in symbols.items():
 
     last = df.iloc[-1]
     prev = df.iloc[-2]
-rsi_log.append({
-    "symbol": name,
-    "date": str(df.index[-1].date()),
-    "close": round(last["Close"], 2),
-    "rsi6": round(last["RSI6"], 2)
-})
+
+    # تسجيل RSI على آخر شمعة
+    rsi_log.append({
+        "symbol": name,
+        "date": str(df.index[-1].date()),
+        "close": round(last["Close"], 2),
+        "rsi6": round(last["RSI6"], 2)
+    })
+
     prev_state = last_signals.get(name)
 
     # 🟢 BUY
@@ -142,7 +144,11 @@ rsi_log.append({
             f"Date: {df.index[-1].date()}"
         )
         new_signals[name] = curr_state
-        with open("rsi_snapshot.json", "w") as f:
+
+# =====================
+# Save RSI snapshot
+# =====================
+with open("rsi_snapshot.json", "w") as f:
     json.dump(rsi_log, f, indent=2)
 
 # =====================
@@ -164,4 +170,4 @@ send_telegram(
     f"📅 {datetime.utcnow().date()}\n"
     f"📊 Signals: {len(alerts)}\n"
     f"⚠️ Data Errors: {len(data_failures)}"
-    )
+)
