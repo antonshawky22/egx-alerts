@@ -1,10 +1,11 @@
-print("EGX ALERTS - RSI Reversal Strategy (DAILY)")
+print("EGX ALERTS - Moving Average Reversal Strategy (DAILY)")
 
 import yfinance as yf
 import requests
 import os
 import json
 import pandas as pd
+from datetime import datetime
 
 # =====================
 # Telegram settings
@@ -16,7 +17,10 @@ def send_telegram(text):
     if not TOKEN or not CHAT_ID:
         return
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": text}, timeout=10)
+    try:
+        requests.post(url, data={"chat_id": CHAT_ID, "text": text}, timeout=10)
+    except Exception as e:
+        print("Telegram send failed:", e)
 
 # =====================
 # EGX symbols
@@ -43,23 +47,13 @@ except Exception:
 
 new_signals = last_signals.copy()
 alerts = []
+data_failures = []
 
 # =====================
 # Indicators
 # =====================
 def ema(series, period):
     return series.ewm(span=period, adjust=False).mean()
-
-def rsi(series, period=6):
-    delta = series.diff()
-    gain = delta.clip(lower=0)
-    loss = -delta.clip(upper=0)
-
-    avg_gain = gain.ewm(alpha=1/period, adjust=False).mean()
-    avg_loss = loss.ewm(alpha=1/period, adjust=False).mean()
-
-    rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
 
 # =====================
 # Fetch data
@@ -86,36 +80,39 @@ def fetch_data(ticker):
 # =====================
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
-
     if df is None or len(df) < 80:
+        data_failures.append(name)
         continue
 
     close = df["Close"]
 
-    df["EMA5"] = ema(close, 5)
-    df["EMA10"] = ema(close, 10)
+    # حساب EMA المختلفة
+    df["EMA4"] = ema(close, 4)
+    df["EMA9"] = ema(close, 9)
+    df["EMA20"] = ema(close, 20)
+    df["EMA50"] = ema(close, 50)
     df["EMA75"] = ema(close, 75)
-    df["RSI6"] = rsi(close, 6)
 
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
     prev_state = last_signals.get(name)
-    candle_date = df.index[-1].date()
 
-    # 🟢 BUY
-    buy_signal = (
-        prev["RSI6"] < 40 and
-        last["RSI6"] > 45 and
-        last["Close"] > last["EMA75"]
-    )
+    # =====================
+    # شروط BUY/SELL مع فلتر الفرق 1% لتقليل إشارات الاتجاه العرضي
+    # =====================
+    range_filter_buy = abs(last["EMA4"] - last["EMA9"]) / last["Close"] > 0.01
+    range_filter_sell = abs(last["EMA4"] - last["EMA9"]) / last["Close"] > 0.01
 
-    # 🔴 SELL
+    # 🟢 BUY: EMA4 تقطع EMA9 لأعلى مع فلتر 1% + فوق EMA75 كفلتر اتجاه صاعد
+    buy_signal = last["EMA4"] > last["EMA9"] and prev["EMA4"] <= prev["EMA9"] and last["Close"] > last["EMA75"] and range_filter_buy
+
+    # 🔴 SELL: أي تقاطع هابط من EMA4 و EMA9 أو EMA4 و EMA20 أو كسر EMA75
     sell_signal = (
-        (prev["RSI6"] >= 50 and last["RSI6"] < 50) or
-        (prev["EMA5"] >= prev["EMA10"] and last["EMA5"] < last["EMA10"]) or
-        (prev["Close"] >= prev["EMA75"] and last["Close"] < last["EMA75"])
-    )
+        (last["EMA4"] < last["EMA9"] and prev["EMA4"] >= prev["EMA9"]) or
+        (last["EMA4"] < last["EMA20"] and prev["EMA4"] >= prev["EMA20"]) or
+        (last["Close"] < last["EMA75"])
+    ) and range_filter_sell
 
     if buy_signal:
         curr_state = "BUY"
@@ -124,22 +121,23 @@ for name, ticker in symbols.items():
     else:
         continue
 
+    # إضافة الرسالة فقط إذا تغيرت الحالة عن آخر إشارة
     if curr_state != prev_state:
         alerts.append(
             f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name}\n"
             f"Price: {last['Close']:.2f}\n"
-            f"Date: {candle_date}"
+            f"Date: {df.index[-1].date()}"
         )
         new_signals[name] = curr_state
 
 # =====================
-# Save signals
+# حفظ آخر الإشارات
 # =====================
 with open(SIGNALS_FILE, "w") as f:
     json.dump(new_signals, f)
 
 # =====================
-# Telegram
+# إرسال الإشارات عبر تليجرام
 # =====================
 if alerts:
     send_telegram("\n\n".join(alerts))
