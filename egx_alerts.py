@@ -92,17 +92,18 @@ for name, ticker in symbols.items():
 
     close = df["Close"]
 
-    df["EMA5"]  = ema(close, 5)
+    df["EMA5"] = ema(close, 5)
     df["EMA10"] = ema(close, 10)
     df["EMA75"] = ema(close, 75)
-    df["RSI6"]  = rsi(close, 6)
+    df["RSI6"] = rsi(close, 6)
 
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
     prev_state = last_signals.get(name)
+    candle_date = df.index[-1].date()
 
-    # 🟢 BUY: خروج من الضعف الحقيقي
+    # 🟢 BUY
     buy_signal = (
         prev["RSI6"] < 40 and
         last["RSI6"] > 45 and
@@ -126,7 +127,8 @@ for name, ticker in symbols.items():
     if curr_state != prev_state:
         alerts.append(
             f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name}\n"
-            f"Price: {last['Close']:.2f}"
+            f"Price: {last['Close']:.2f}\n"
+            f"Date: {candle_date}"
         )
         new_signals[name] = curr_state
 
