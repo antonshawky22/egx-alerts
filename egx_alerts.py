@@ -1,4 +1,4 @@
-print("EGX ALERTS - Moving Average Reversal Strategy (DAILY)")
+print("EGX ALERTS - Moving Average Strong Filter Strategy (DAILY)")
 
 import yfinance as yf
 import requests
@@ -99,24 +99,19 @@ for name, ticker in symbols.items():
     prev_state = last_signals.get(name)
 
     # =====================
-    # فلتر الفروق الصغيرة لتقليل إشارات الاتجاه العرضي
-    # =====================
-    range_filter_buy = abs(last["EMA4"] - last["EMA9"]) / last["Close"] > 0.01
-    trend_filter_buy = (last["EMA20"] > last["EMA50"] * 1.005) or (last["EMA20"] > prev["EMA20"])
-
-    # 🟢 BUY
-    buy_signal = last["EMA4"] > last["EMA9"] and prev["EMA4"] <= prev["EMA9"] \
-                 and last["Close"] > last["EMA75"] \
-                 and range_filter_buy \
-                 and trend_filter_buy
-
+    # 🟢 BUY: EMA4 يقطع EMA9 لأعلى + السعر فوق EMA20 و EMA50 و EMA75
     # 🔴 SELL: أي تقاطع هابط أو كسر EMA75
-    range_filter_sell = abs(last["EMA4"] - last["EMA9"]) / last["Close"] > 0.01
+    # =====================
+    buy_signal = (
+        last["EMA4"] > last["EMA9"] and prev["EMA4"] <= prev["EMA9"] and
+        last["Close"] > last["EMA20"] and last["Close"] > last["EMA50"] and last["Close"] > last["EMA75"]
+    )
+
     sell_signal = (
         (last["EMA4"] < last["EMA9"] and prev["EMA4"] >= prev["EMA9"]) or
         (last["EMA4"] < last["EMA20"] and prev["EMA4"] >= prev["EMA20"]) or
         (last["Close"] < last["EMA75"])
-    ) and range_filter_sell
+    )
 
     if buy_signal:
         curr_state = "BUY"
