@@ -99,15 +99,19 @@ for name, ticker in symbols.items():
     prev_state = last_signals.get(name)
 
     # =====================
-    # شروط BUY/SELL مع فلتر الفرق 1% لتقليل إشارات الاتجاه العرضي
+    # فلتر الفروق الصغيرة لتقليل إشارات الاتجاه العرضي
     # =====================
     range_filter_buy = abs(last["EMA4"] - last["EMA9"]) / last["Close"] > 0.01
+    trend_filter_buy = (last["EMA20"] > last["EMA50"] * 1.005) or (last["EMA20"] > prev["EMA20"])
+
+    # 🟢 BUY
+    buy_signal = last["EMA4"] > last["EMA9"] and prev["EMA4"] <= prev["EMA9"] \
+                 and last["Close"] > last["EMA75"] \
+                 and range_filter_buy \
+                 and trend_filter_buy
+
+    # 🔴 SELL: أي تقاطع هابط أو كسر EMA75
     range_filter_sell = abs(last["EMA4"] - last["EMA9"]) / last["Close"] > 0.01
-
-    # 🟢 BUY: EMA4 تقطع EMA9 لأعلى مع فلتر 1% + فوق EMA75 كفلتر اتجاه صاعد
-    buy_signal = last["EMA4"] > last["EMA9"] and prev["EMA4"] <= prev["EMA9"] and last["Close"] > last["EMA75"] and range_filter_buy
-
-    # 🔴 SELL: أي تقاطع هابط من EMA4 و EMA9 أو EMA4 و EMA20 أو كسر EMA75
     sell_signal = (
         (last["EMA4"] < last["EMA9"] and prev["EMA4"] >= prev["EMA9"]) or
         (last["EMA4"] < last["EMA20"] and prev["EMA4"] >= prev["EMA20"]) or
