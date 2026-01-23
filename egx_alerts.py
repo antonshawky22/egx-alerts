@@ -5,7 +5,6 @@ import requests
 import os
 import json
 import pandas as pd
-from datetime import datetime
 
 # =====================
 # Telegram settings
@@ -44,7 +43,6 @@ except Exception:
 
 new_signals = last_signals.copy()
 alerts = []
-data_failures = []
 
 # =====================
 # Indicators
@@ -86,18 +84,15 @@ def fetch_data(ticker):
 # =====================
 # Main Logic
 # =====================
-rsi_log = []
-
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
 
-    if df is None or len(df) < 6:
-        data_failures.append(name)
+    if df is None or len(df) < 80:
         continue
 
     close = df["Close"]
 
-    df["EMA6"]  = ema(close, 6)
+    df["EMA5"]  = ema(close, 5)
     df["EMA10"] = ema(close, 10)
     df["EMA75"] = ema(close, 75)
     df["RSI6"]  = rsi(close, 6)
@@ -105,38 +100,19 @@ for name, ticker in symbols.items():
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
-    # =====================
-    # سجل كل RSI6 لكل سهم في رسالة واحدة
-    # =====================
-    last_rsi = last["RSI6"]
-    last_close = last["Close"]
-    rsi_message = f"{name} | آخر سعر: {last_close:.2f} | RSI6: {last_rsi:.2f}"
-    send_telegram(rsi_message)  # هيوصل لك على التليجرام مباشرة
-    rsi_log.append({
-        "symbol": name,
-        "date": str(df.index[-1].date()),
-        "close": float(last_close),
-        "rsi6": float(last_rsi)
-    })
-
-    # =====================
-    # إشارات BUY/SELL للأسهم اللي فيها 80 شمعة على الأقل
-    # =====================
-    if len(df) < 80:
-        continue
-
     prev_state = last_signals.get(name)
 
-    # 🟢 BUY
+    # 🟢 BUY: خروج من الضعف الحقيقي
     buy_signal = (
-        last["RSI6"] <= 50 and
+        prev["RSI6"] < 40 and
+        last["RSI6"] > 45 and
         last["Close"] > last["EMA75"]
     )
 
     # 🔴 SELL
     sell_signal = (
-        (prev["EMA6"] >= prev["EMA10"] and last["EMA6"] < last["EMA10"]) or
         (prev["RSI6"] >= 50 and last["RSI6"] < 50) or
+        (prev["EMA5"] >= prev["EMA10"] and last["EMA5"] < last["EMA10"]) or
         (prev["Close"] >= prev["EMA75"] and last["Close"] < last["EMA75"])
     )
 
@@ -150,17 +126,9 @@ for name, ticker in symbols.items():
     if curr_state != prev_state:
         alerts.append(
             f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name}\n"
-            f"Price: {last['Close']:.2f}\n"
-            f"RSI6: {last['RSI6']:.1f}\n"
-            f"Date: {df.index[-1].date()}"
+            f"Price: {last['Close']:.2f}"
         )
         new_signals[name] = curr_state
-
-# =====================
-# Save RSI snapshot (اختياري)
-# =====================
-with open("rsi_snapshot.json", "w") as f:
-    json.dump(rsi_log, f, indent=2)
 
 # =====================
 # Save signals
@@ -169,16 +137,9 @@ with open(SIGNALS_FILE, "w") as f:
     json.dump(new_signals, f)
 
 # =====================
-# Telegram summary
+# Telegram
 # =====================
 if alerts:
-    send_telegram("🚨 EGX Reversal Signals:\n\n" + "\n\n".join(alerts))
+    send_telegram("\n\n".join(alerts))
 else:
     send_telegram("ℹ️ لا توجد إشارات جديدة")
-
-send_telegram(
-    f"✅ Bot Running\n"
-    f"📅 {datetime.utcnow().date()}\n"
-    f"📊 Signals: {len(alerts)}\n"
-    f"⚠️ Data Errors: {len(data_failures)}"
-    )
