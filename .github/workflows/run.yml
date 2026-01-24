@@ -1,7 +1,6 @@
 name: EGX Alerts
 
 on:
-  workflow_dispatch:
 
   schedule:
     - cron: '*/5 * * * *'
