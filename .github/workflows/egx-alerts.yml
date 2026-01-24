@@ -1,4 +1,0 @@
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: '0 5,6 * * *'   # مثال: 7 و8 صباحًا بتوقيت مصر
