@@ -1,1 +1,12 @@
+name: TEST CRON
 
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say hello
+        run: echo "CRON WORKS"
