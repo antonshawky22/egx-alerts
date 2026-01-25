@@ -26,15 +26,48 @@ def send_telegram(text):
 # EGX symbols
 # =====================
 symbols = {
-    "OFH": "OFH.CA","OLFI": "OLFI.CA","EMFD": "EMFD.CA","ETEL": "ETEL.CA",
-    "EAST": "EAST.CA","EFIH": "EFIH.CA","ABUK": "ABUK.CA","OIH": "OIH.CA",
-    "SWDY": "SWDY.CA","ISPH": "ISPH.CA","ATQA": "ATQA.CA","MTIE": "MTIE.CA",
-    "ELEC": "ELEC.CA","HRHO": "HRHO.CA","ORWE": "ORWE.CA","JUFO": "JUFO.CA",
-    "DSCW": "DSCW.CA","SUGR": "SUGR.CA","ELSH": "ELSH.CA","RMDA": "RMDA.CA",
-    "RAYA": "RAYA.CA","EEII": "EEII.CA","MPCO": "MPCO.CA","GBCO": "GBCO.CA",
-    "TMGH": "TMGH.CA","ORHD": "ORHD.CA","AMOC": "AMOC.CA","FWRY": "FWRY.CA"
-}
+    # ===== القائمة الأصلية =====
+    "OFH": "OFH.CA",
+    "OLFI": "OLFI.CA",
+    "EMFD": "EMFD.CA",
+    "ETEL": "ETEL.CA",
+    "EAST": "EAST.CA",
+    "EFIH": "EFIH.CA",
+    "ABUK": "ABUK.CA",
+    "OIH": "OIH.CA",
+    "SWDY": "SWDY.CA",
+    "ISPH": "ISPH.CA",
+    "ATQA": "ATQA.CA",
+    "MTIE": "MTIE.CA",
+    "ELEC": "ELEC.CA",
+    "HRHO": "HRHO.CA",
+    "ORWE": "ORWE.CA",
+    "JUFO": "JUFO.CA",
+    "DSCW": "DSCW.CA",
+    "SUGR": "SUGR.CA",
+    "ELSH": "ELSH.CA",
+    "RMDA": "RMDA.CA",
+    "RAYA": "RAYA.CA",
+    "EEII": "EEII.CA",
+    "MPCO": "MPCO.CA",
+    "GBCO": "GBCO.CA",
+    "TMGH": "TMGH.CA",
+    "ORHD": "ORHD.CA",
+    "AMOC": "AMOC.CA",
+    "FWRY": "FWRY.CA",
 
+    # ===== الإضافات الجديدة =====
+    "COMI": "COMI.CA",   # البنك التجاري الدولي
+    "ADIB": "ADIB.CA",   # أبو ظبي الإسلامي
+    "QNBA": "QNBA.CA",   # قطر الوطني
+    "PHDC": "PHDC.CA",   # بالم هيلز
+    "EGTS": "EGTS.CA",   # المصرية لخدمات المحمول
+    "MCQE": "MCQE.CA",   # مصر للأسمنت قنا
+    "SKPC": "SKPC.CA",   # سيدي كرير
+    "ESRS": "ESRS.CA",   # المناجم
+    "EGAL": "EGAL.CA",   # مصر للألومنيوم
+    "MNHD": "MNHD.CA"    # مدينة نصر للإسكان
+}
 # =====================
 # Load last signals
 # =====================
