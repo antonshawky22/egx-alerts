@@ -80,7 +80,7 @@ def fetch_data(ticker):
 # =====================
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
-    if df is None or len(df) < 80:
+    if df is None or len(df) < 50:  # أقل طول لازم لحساب EMA50
         data_failures.append(name)
         continue
 
@@ -89,9 +89,8 @@ for name, ticker in symbols.items():
     # حساب EMA المختلفة
     df["EMA4"] = ema(close, 4)
     df["EMA9"] = ema(close, 9)
-    df["EMA20"] = ema(close, 20)
+    df["EMA25"] = ema(close, 25)
     df["EMA50"] = ema(close, 50)
-    df["EMA75"] = ema(close, 75)
 
     last = df.iloc[-1]
     prev = df.iloc[-2]
@@ -99,18 +98,19 @@ for name, ticker in symbols.items():
     prev_state = last_signals.get(name)
 
     # =====================
-    # 🟢 BUY: EMA4 يقطع EMA9 لأعلى + السعر فوق EMA20 و EMA50 و EMA75
-    # 🔴 SELL: أي تقاطع هابط أو كسر EMA75
+    # 🟢 BUY: EMA4 يقطع EMA9 لأعلى + السعر فوق EMA25 و EMA50
+    # 🔴 SELL: EMA4 يقطع EMA9 لأسفل أو السعر يقفل تحت EMA25 أو EMA25 تكسر EMA50
     # =====================
     buy_signal = (
         last["EMA4"] > last["EMA9"] and prev["EMA4"] <= prev["EMA9"] and
-        last["Close"] > last["EMA20"] and last["Close"] > last["EMA50"] and last["Close"] > last["EMA75"]
+        last["Close"] > last["EMA25"] and last["Close"] > last["EMA50"] and
+        df["EMA25"].iloc[-1] > df["EMA50"].iloc[-1]  # اتجاه صاعد
     )
 
     sell_signal = (
         (last["EMA4"] < last["EMA9"] and prev["EMA4"] >= prev["EMA9"]) or
-        (last["EMA4"] < last["EMA20"] and prev["EMA4"] >= prev["EMA20"]) or
-        (last["Close"] < last["EMA75"])
+        (last["Close"] < last["EMA25"]) or
+        (df["EMA25"].iloc[-1] < df["EMA50"].iloc[-1])
     )
 
     if buy_signal:
