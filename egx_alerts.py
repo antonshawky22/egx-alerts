@@ -26,48 +26,18 @@ def send_telegram(text):
 # EGX symbols
 # =====================
 symbols = {
-    # ===== القائمة الأصلية =====
-    "OFH": "OFH.CA",
-    "OLFI": "OLFI.CA",
-    "EMFD": "EMFD.CA",
-    "ETEL": "ETEL.CA",
-    "EAST": "EAST.CA",
-    "EFIH": "EFIH.CA",
-    "ABUK": "ABUK.CA",
-    "OIH": "OIH.CA",
-    "SWDY": "SWDY.CA",
-    "ISPH": "ISPH.CA",
-    "ATQA": "ATQA.CA",
-    "MTIE": "MTIE.CA",
-    "ELEC": "ELEC.CA",
-    "HRHO": "HRHO.CA",
-    "ORWE": "ORWE.CA",
-    "JUFO": "JUFO.CA",
-    "DSCW": "DSCW.CA",
-    "SUGR": "SUGR.CA",
-    "ELSH": "ELSH.CA",
-    "RMDA": "RMDA.CA",
-    "RAYA": "RAYA.CA",
-    "EEII": "EEII.CA",
-    "MPCO": "MPCO.CA",
-    "GBCO": "GBCO.CA",
-    "TMGH": "TMGH.CA",
-    "ORHD": "ORHD.CA",
-    "AMOC": "AMOC.CA",
-    "FWRY": "FWRY.CA",
-
-    # ===== الإضافات الجديدة =====
-    "COMI": "COMI.CA",   # البنك التجاري الدولي
-    "ADIB": "ADIB.CA",   # أبو ظبي الإسلامي
-    "QNBA": "QNBA.CA",   # قطر الوطني
-    "PHDC": "PHDC.CA",   # بالم هيلز
-    "EGTS": "EGTS.CA",   # المصرية لخدمات المحمول
-    "MCQE": "MCQE.CA",   # مصر للأسمنت قنا
-    "SKPC": "SKPC.CA",   # سيدي كرير
-    "ESRS": "ESRS.CA",   # المناجم
-    "EGAL": "EGAL.CA",   # مصر للألومنيوم
-    "MNHD": "MNHD.CA"    # مدينة نصر للإسكان
+    "OFH": "OFH.CA","OLFI": "OLFI.CA","EMFD": "EMFD.CA","ETEL": "ETEL.CA",
+    "EAST": "EAST.CA","EFIH": "EFIH.CA","ABUK": "ABUK.CA","OIH": "OIH.CA",
+    "SWDY": "SWDY.CA","ISPH": "ISPH.CA","ATQA": "ATQA.CA","MTIE": "MTIE.CA",
+    "ELEC": "ELEC.CA","HRHO": "HRHO.CA","ORWE": "ORWE.CA","JUFO": "JUFO.CA",
+    "DSCW": "DSCW.CA","SUGR": "SUGR.CA","ELSH": "ELSH.CA","RMDA": "RMDA.CA",
+    "RAYA": "RAYA.CA","EEII": "EEII.CA","MPCO": "MPCO.CA","GBCO": "GBCO.CA",
+    "TMGH": "TMGH.CA","ORHD": "ORHD.CA","AMOC": "AMOC.CA","FWRY": "FWRY.CA",
+    "COMI": "COMI.CA","ADIB": "ADIB.CA","QNBA": "QNBA.CA","PHDC": "PHDC.CA",
+    "EGTS": "EGTS.CA","MCQE": "MCQE.CA","SKPC": "SKPC.CA","ESRS": "ESRS.CA",
+    "EGAL": "EGAL.CA","MNHD": "MNHD.CA"
 }
+
 # =====================
 # Load last signals
 # =====================
@@ -113,7 +83,7 @@ def fetch_data(ticker):
 # =====================
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
-    if df is None or len(df) < 50:  # أقل طول لازم لحساب EMA50
+    if df is None or len(df) < 50:
         data_failures.append(name)
         continue
 
@@ -131,13 +101,13 @@ for name, ticker in symbols.items():
     prev_state = last_signals.get(name)
 
     # =====================
-    # 🟢 BUY: EMA4 يقطع EMA9 لأعلى + السعر فوق EMA25 و EMA50
-    # 🔴 SELL: EMA4 يقطع EMA9 لأسفل أو السعر يقفل تحت EMA25 أو EMA25 تكسر EMA50
+    # 🟢 BUY: EMA4 يقطع EMA9 لأعلى + السعر فوق EMA25 و EMA50 + اتجاه EMA25 صاعد
+    # 🔴 SELL: EMA4 يقطع EMA9 لأسفل أو السعر يقفل تحت EMA25 أو EMA25 يكسر EMA50
     # =====================
     buy_signal = (
         last["EMA4"] > last["EMA9"] and prev["EMA4"] <= prev["EMA9"] and
         last["Close"] > last["EMA25"] and last["Close"] > last["EMA50"] and
-        df["EMA25"].iloc[-1] > df["EMA50"].iloc[-1]  # اتجاه صاعد
+        df["EMA25"].iloc[-1] > df["EMA50"].iloc[-1]
     )
 
     sell_signal = (
@@ -161,6 +131,12 @@ for name, ticker in symbols.items():
             f"Date: {df.index[-1].date()}"
         )
         new_signals[name] = curr_state
+
+# =====================
+# إشعار بفشل تحميل البيانات
+# =====================
+if data_failures:
+    send_telegram(f"⚠️ فشل تحميل بيانات لبعض الأسهم: {', '.join(data_failures)}")
 
 # =====================
 # حفظ آخر الإشارات
