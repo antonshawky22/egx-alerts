@@ -1,4 +1,4 @@
-name: EGX Alerts 4 m av
+name: 4_mo av
 
 on:
   workflow_dispatch:
@@ -31,7 +31,7 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python egx_alerts.py
+        run: 4_moving_av.py
 
       - name: Commit last signals
         run: |
