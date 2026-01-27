@@ -1,4 +1,4 @@
-name: 4_mo av
+name: 4-moving average
 
 on:
   workflow_dispatch:
@@ -27,7 +27,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run EGX alerts
+      - name: 4-moving average
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
