@@ -1,4 +1,4 @@
-print("EGX ALERTS - Moving Average Strong Filter Strategy (DAILY)")
+print("EGX ALERTS - 4 Moving Average Strategy")
 
 import yfinance as yf
 import requests
@@ -41,7 +41,7 @@ symbols = {
 # =====================
 # Load last signals
 # =====================
-SIGNALS_FILE = "last_signals.json"
+SIGNALS_FILE = "last_signals_ma4.json"  # منفصل عن LuxAlgo
 try:
     with open(SIGNALS_FILE, "r") as f:
         last_signals = json.load(f)
@@ -51,11 +51,10 @@ except Exception:
 new_signals = last_signals.copy()
 alerts = []
 data_failures = []
-
-last_candle_date = None  # ← أهم إضافة
+last_candle_date = None
 
 # =====================
-# Indicators
+# EMA Helper
 # =====================
 def ema(series, period):
     return series.ewm(span=period, adjust=False).mean()
@@ -89,15 +88,14 @@ for name, ticker in symbols.items():
         data_failures.append(name)
         continue
 
-    # تحديث تاريخ آخر شمعة ناجحة
     candle_date = df.index[-1].date()
     if last_candle_date is None or candle_date > last_candle_date:
         last_candle_date = candle_date
 
     close = df["Close"]
 
-    df["EMA4"] = ema(close, 4)
-    df["EMA9"] = ema(close, 9)
+    df["EMA4"]  = ema(close, 4)
+    df["EMA9"]  = ema(close, 9)
     df["EMA25"] = ema(close, 25)
     df["EMA50"] = ema(close, 50)
 
@@ -134,13 +132,13 @@ for name, ticker in symbols.items():
         new_signals[name] = curr_state
 
 # =====================
-# إشعار فشل البيانات
+# Data failure alert
 # =====================
 if data_failures:
-    send_telegram(f"⚠️ فشل تحميل بيانات لبعض الأسهم: {', '.join(data_failures)}")
+    send_telegram("⚠️ فشل تحميل بيانات لبعض الأسهم: " + ", ".join(data_failures))
 
 # =====================
-# حفظ الإشارات
+# Save signals
 # =====================
 with open(SIGNALS_FILE, "w") as f:
     json.dump(new_signals, f)
@@ -149,11 +147,11 @@ with open(SIGNALS_FILE, "w") as f:
 # Telegram output
 # =====================
 if alerts:
-    send_telegram("\n\n".join(alerts))
+    send_telegram("🚨 EGX 4 Moving Average Signals:\n\n" + "\n\n".join(alerts))
 else:
     if last_candle_date:
         send_telegram(
-            "ℹ️ لا توجد إشارات جديدة\n\n"
+            "ℹ️ لا توجد إشارات جديدة (4 Moving Average)\n\n"
             f"آخر شمعة محسوبة:\n📅 {last_candle_date}"
         )
     else:
