@@ -52,6 +52,8 @@ new_signals = last_signals.copy()
 alerts = []
 data_failures = []
 
+last_candle_date = None  # ← أهم إضافة
+
 # =====================
 # Indicators
 # =====================
@@ -87,9 +89,13 @@ for name, ticker in symbols.items():
         data_failures.append(name)
         continue
 
+    # تحديث تاريخ آخر شمعة ناجحة
+    candle_date = df.index[-1].date()
+    if last_candle_date is None or candle_date > last_candle_date:
+        last_candle_date = candle_date
+
     close = df["Close"]
 
-    # حساب EMA المختلفة
     df["EMA4"] = ema(close, 4)
     df["EMA9"] = ema(close, 9)
     df["EMA25"] = ema(close, 25)
@@ -100,10 +106,6 @@ for name, ticker in symbols.items():
 
     prev_state = last_signals.get(name)
 
-    # =====================
-    # 🟢 BUY: EMA4 يقطع EMA9 لأعلى + السعر فوق EMA25 و EMA50 + اتجاه EMA25 صاعد
-    # 🔴 SELL: EMA4 يقطع EMA9 لأسفل أو السعر يقفل تحت EMA25 أو EMA25 يكسر EMA50
-    # =====================
     buy_signal = (
         last["EMA4"] > last["EMA9"] and prev["EMA4"] <= prev["EMA9"] and
         last["Close"] > last["EMA25"] and last["Close"] > last["EMA50"] and
@@ -123,31 +125,36 @@ for name, ticker in symbols.items():
     else:
         continue
 
-    # إضافة الرسالة فقط إذا تغيرت الحالة عن آخر إشارة
     if curr_state != prev_state:
         alerts.append(
             f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name}\n"
             f"Price: {last['Close']:.2f}\n"
-            f"Date: {df.index[-1].date()}"
+            f"Date: {candle_date}"
         )
         new_signals[name] = curr_state
 
 # =====================
-# إشعار بفشل تحميل البيانات
+# إشعار فشل البيانات
 # =====================
 if data_failures:
     send_telegram(f"⚠️ فشل تحميل بيانات لبعض الأسهم: {', '.join(data_failures)}")
 
 # =====================
-# حفظ آخر الإشارات
+# حفظ الإشارات
 # =====================
 with open(SIGNALS_FILE, "w") as f:
     json.dump(new_signals, f)
 
 # =====================
-# إرسال الإشارات عبر تليجرام
+# Telegram output
 # =====================
 if alerts:
     send_telegram("\n\n".join(alerts))
 else:
-    send_telegram("ℹ️ لا توجد إشارات جديدة")
+    if last_candle_date:
+        send_telegram(
+            "ℹ️ لا توجد إشارات جديدة\n\n"
+            f"آخر شمعة محسوبة:\n📅 {last_candle_date}"
+        )
+    else:
+        send_telegram("⚠️ لم يتم تحميل أي بيانات أسعار")
