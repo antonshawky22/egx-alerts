@@ -33,9 +33,9 @@ symbols = {
     "DSCW": "DSCW.CA","SUGR": "SUGR.CA","ELSH": "ELSH.CA","RMDA": "RMDA.CA",
     "RAYA": "RAYA.CA","EEII": "EEII.CA","MPCO": "MPCO.CA","GBCO": "GBCO.CA",
     "TMGH": "TMGH.CA","ORHD": "ORHD.CA","AMOC": "AMOC.CA","FWRY": "FWRY.CA",
-    "COMI": "COMI.CA","ADIB": "ADIB.CA","QNBA": "QNBA.CA","PHDC": "PHDC.CA",
-    "EGTS": "EGTS.CA","MCQE": "MCQE.CA","SKPC": "SKPC.CA","ESRS": "ESRS.CA",
-    "EGAL": "EGAL.CA","MNHD": "MNHD.CA"
+    "COMI": "COMI.CA","ADIB": "ADIB.CA","PHDC": "PHDC.CA",
+    "EGTS": "EGTS.CA","MCQE": "MCQE.CA","SKPC": "SKPC.CA",
+    "EGAL": "EGAL.CA"
 }
 
 # =====================
