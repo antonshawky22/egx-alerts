@@ -1,4 +1,4 @@
-print("EGX ALERTS - MA Strategy (4 / 9 / 25)")
+print("EGX ALERTS - MA Strategy (4 / 9 / 25) - Test Mode")
 
 import yfinance as yf
 import requests
@@ -76,7 +76,7 @@ def fetch_data(ticker):
         return None
 
 # =====================
-# Main Logic
+# Main Logic (Test Mode)
 # =====================
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
@@ -86,7 +86,6 @@ for name, ticker in symbols.items():
     last_candle_date = df.index[-1].date()
 
     close = df["Close"]
-    body = abs(df["Close"] - df["Open"])
 
     df["EMA4"]  = ema(close, 4)
     df["EMA9"]  = ema(close, 9)
@@ -95,30 +94,17 @@ for name, ticker in symbols.items():
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
-    # ===== Large candle filter =====
-    avg_body = body.iloc[-11:-1].mean()
-    large_candle = body.iloc[-1] > (1.5 * avg_body)
-
     prev_state = last_signals.get(name)
 
     # =====================
-    # BUY
+    # BUY (Test Mode - no filters)
     # =====================
-    buy_signal = (
-        last["EMA4"] > last["EMA9"] and
-        prev["EMA4"] <= prev["EMA9"] and
-        last["Close"] > last["EMA25"] and
-        last["EMA25"] >= prev["EMA25"] and
-        not large_candle
-    )
+    buy_signal = last["EMA4"] > last["EMA9"] and prev["EMA4"] <= prev["EMA9"]
 
     # =====================
-    # SELL
+    # SELL (Test Mode - no filters)
     # =====================
-    sell_signal = (
-        (last["EMA4"] < last["EMA9"] and prev["EMA4"] >= prev["EMA9"]) or
-        (last["Close"] < last["EMA25"])
-    )
+    sell_signal = last["EMA4"] < last["EMA9"] and prev["EMA4"] >= prev["EMA9"]
 
     if buy_signal:
         curr_state = "BUY"
@@ -145,9 +131,9 @@ with open(SIGNALS_FILE, "w") as f:
 # Telegram output
 # =====================
 if alerts:
-    send_telegram("🚨 EGX MA Strategy Signals:\n\n" + "\n\n".join(alerts))
+    send_telegram("🚨 EGX MA Strategy Signals (Test Mode):\n\n" + "\n\n".join(alerts))
 else:
     send_telegram(
-        "ℹ️ لا توجد إشارات جديدة\n\n"
+        "ℹ️ لا توجد إشارات جديدة (Test Mode)\n\n"
         f"last candle date:\n📅 {last_candle_date}"
-    )
+                     )
