@@ -1,9 +1,8 @@
-print("EGX ALERTS - MA Strategy (4 / 9 / 25) - Test Mode")
+print("EGX ALERTS - MA TEST MODE (SHOW ALL STATES)")
 
 import yfinance as yf
 import requests
 import os
-import json
 import pandas as pd
 
 # =====================
@@ -18,8 +17,8 @@ def send_telegram(text):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     try:
         requests.post(url, data={"chat_id": CHAT_ID, "text": text}, timeout=10)
-    except Exception as e:
-        print("Telegram send failed:", e)
+    except:
+        pass
 
 # =====================
 # EGX symbols
@@ -38,21 +37,6 @@ symbols = {
 }
 
 # =====================
-# Load last signals
-# =====================
-SIGNALS_FILE = "last_signals_ma4.json"
-
-try:
-    with open(SIGNALS_FILE, "r") as f:
-        last_signals = json.load(f)
-except:
-    last_signals = {}
-
-new_signals = last_signals.copy()
-alerts = []
-last_candle_date = None
-
-# =====================
 # Helpers
 # =====================
 def ema(series, period):
@@ -69,21 +53,19 @@ def fetch_data(ticker):
         )
         if df is None or df.empty:
             return None
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
         return df
     except:
         return None
 
 # =====================
-# Main Logic (Test Mode)
+# Main Logic
 # =====================
+alerts = []
+
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
     if df is None or len(df) < 30:
         continue
-
-    last_candle_date = df.index[-1].date()
 
     close = df["Close"]
 
@@ -92,48 +74,22 @@ for name, ticker in symbols.items():
     df["EMA25"] = ema(close, 25)
 
     last = df.iloc[-1]
-    prev = df.iloc[-2]
 
-    prev_state = last_signals.get(name)
-
-    # =====================
-    # BUY (Test Mode - no filters)
-    # =====================
-    buy_signal = last["EMA4"] > last["EMA9"] and prev["EMA4"] <= prev["EMA9"]
-
-    # =====================
-    # SELL (Test Mode - no filters)
-    # =====================
-    sell_signal = last["EMA4"] < last["EMA9"] and prev["EMA4"] >= prev["EMA9"]
-
-    if buy_signal:
-        curr_state = "BUY"
-    elif sell_signal:
-        curr_state = "SELL"
+    if last["EMA4"] > last["EMA9"] and last["Close"] > last["EMA25"]:
+        state = "🟢 BUY"
     else:
-        continue
+        state = "🔴 SELL"
 
-    if curr_state != prev_state:
-        alerts.append(
-            f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name}\n"
-            f"Price: {last['Close']:.2f}\n"
-            f"Date: {last_candle_date}"
-        )
-        new_signals[name] = curr_state
-
-# =====================
-# Save signals
-# =====================
-with open(SIGNALS_FILE, "w") as f:
-    json.dump(new_signals, f)
+    alerts.append(
+        f"{state} | {name}\n"
+        f"Price: {last['Close']:.2f}\n"
+        f"Date: {df.index[-1].date()}"
+    )
 
 # =====================
 # Telegram output
 # =====================
-if alerts:
-    send_telegram("🚨 EGX MA Strategy Signals (Test Mode):\n\n" + "\n\n".join(alerts))
-else:
-    send_telegram(
-        "ℹ️ لا توجد إشارات جديدة (Test Mode)\n\n"
-        f"last candle date:\n📅 {last_candle_date}"
-                     )
+send_telegram(
+    "🧪 TEST MODE – ALL STOCK STATES\n\n" +
+    "\n\n".join(alerts)
+)
