@@ -1,8 +1,9 @@
-print("EGX ALERTS - MA TEST MODE (SHOW ALL STATES)")
+print("EGX ALERTS - MA Strategy (4 / 9 / 25) - RELAXED MODE")
 
 import yfinance as yf
 import requests
 import os
+import json
 import pandas as pd
 
 # =====================
@@ -37,6 +38,21 @@ symbols = {
 }
 
 # =====================
+# Load last signals
+# =====================
+SIGNALS_FILE = "last_signals_ma4.json"
+
+try:
+    with open(SIGNALS_FILE, "r") as f:
+        last_signals = json.load(f)
+except:
+    last_signals = {}
+
+new_signals = last_signals.copy()
+alerts = []
+last_candle_date = None
+
+# =====================
 # Helpers
 # =====================
 def ema(series, period):
@@ -62,48 +78,71 @@ def fetch_data(ticker):
 # =====================
 # Main Logic
 # =====================
-results = []
-last_candle_date = None
-
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
     if df is None or len(df) < 30:
-        results.append(f"⚠️ {name} | NO DATA")
         continue
 
     last_candle_date = df.index[-1].date()
-
     close = df["Close"]
 
     df["EMA4"]  = ema(close, 4)
     df["EMA9"]  = ema(close, 9)
     df["EMA25"] = ema(close, 25)
 
-    # ===== Explicit last values (IMPORTANT) =====
-    ema4  = df["EMA4"].iloc[-1]
-    ema9  = df["EMA9"].iloc[-1]
-    ema25 = df["EMA25"].iloc[-1]
-    price = df["Close"].iloc[-1]
+    last = df.iloc[-1]
+    prev = df.iloc[-2]
+
+    prev_state = last_signals.get(name)
 
     # =====================
-    # STATE LOGIC (TEST)
+    # BUY - RELAXED
     # =====================
-    if ema4 > ema9 and price > ema25:
-        state = "🟢 BUY"
-    elif ema4 < ema9 and price < ema25:
-        state = "🔴 SELL"
-    else:
-        state = "⚪ HOLD"
-
-    results.append(
-        f"{state} | {name} | {price:.2f}"
+    buy_signal = (
+        last["EMA4"] > last["EMA9"] and
+        prev["EMA4"] <= prev["EMA9"] and
+        last["Close"] > last["EMA25"]
+        # تجاه EMA25 ممكن يكون صاعد أو ثابت - مش شرط صارم
+        # large candle filter مؤقتًا مرفوض
     )
+
+    # =====================
+    # SELL - RELAXED
+    # =====================
+    sell_signal = (
+        (last["EMA4"] < last["EMA9"] and prev["EMA4"] >= prev["EMA9"]) or
+        (last["Close"] < last["EMA25"])
+    )
+
+    if buy_signal:
+        curr_state = "BUY"
+    elif sell_signal:
+        curr_state = "SELL"
+    else:
+        curr_state = "HOLD"
+
+    # Append alert لو مختلف عن الحالة السابقة
+    if curr_state != prev_state:
+        alerts.append(
+            f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL' if curr_state=='SELL' else '⚪ HOLD'} | {name}\n"
+            f"Price: {last['Close']:.2f}\n"
+            f"Date: {last_candle_date}"
+        )
+        new_signals[name] = curr_state
+
+# =====================
+# Save signals
+# =====================
+with open(SIGNALS_FILE, "w") as f:
+    json.dump(new_signals, f)
 
 # =====================
 # Telegram output
 # =====================
-send_telegram(
-    "🧪 MA TEST MODE (SHOW ALL STATES)\n\n"
-    + "\n".join(results)
-    + f"\n\n📅 Last candle date: {last_candle_date}"
-)
+if alerts:
+    send_telegram("🚨 EGX MA Strategy Signals (RELAXED MODE):\n\n" + "\n\n".join(alerts))
+else:
+    send_telegram(
+        "ℹ️ لا توجد إشارات جديدة\n\n"
+        f"last candle date:\n📅 {last_candle_date}"
+    )
