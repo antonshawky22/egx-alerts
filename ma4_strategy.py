@@ -40,7 +40,7 @@ symbols = {
 # =====================
 # Load last signals
 # =====================
-SIGNALS_FILE = "last_signals_ma.json"
+SIGNALS_FILE = "last_signals_ma4.json"
 
 try:
     with open(SIGNALS_FILE, "r") as f:
