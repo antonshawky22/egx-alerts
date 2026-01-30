@@ -1,11 +1,10 @@
-print("EGX ALERTS - 4 Moving Average Strategy")
+print("EGX ALERTS - MA Strategy (4 / 9 / 25)")
 
 import yfinance as yf
 import requests
 import os
 import json
 import pandas as pd
-from datetime import datetime
 
 # =====================
 # Telegram settings
@@ -41,27 +40,24 @@ symbols = {
 # =====================
 # Load last signals
 # =====================
-SIGNALS_FILE = "last_signals_ma4.json"  # منفصل عن LuxAlgo
+SIGNALS_FILE = "last_signals_ma.json"
+
 try:
     with open(SIGNALS_FILE, "r") as f:
         last_signals = json.load(f)
-except Exception:
+except:
     last_signals = {}
 
 new_signals = last_signals.copy()
 alerts = []
-data_failures = []
 last_candle_date = None
 
 # =====================
-# EMA Helper
+# Helpers
 # =====================
 def ema(series, period):
     return series.ewm(span=period, adjust=False).mean()
 
-# =====================
-# Fetch data
-# =====================
 def fetch_data(ticker):
     try:
         df = yf.download(
@@ -76,7 +72,7 @@ def fetch_data(ticker):
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         return df
-    except Exception:
+    except:
         return None
 
 # =====================
@@ -84,36 +80,44 @@ def fetch_data(ticker):
 # =====================
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
-    if df is None or len(df) < 50:
-        data_failures.append(name)
+    if df is None or len(df) < 30:
         continue
 
-    candle_date = df.index[-1].date()
-    if last_candle_date is None or candle_date > last_candle_date:
-        last_candle_date = candle_date
+    last_candle_date = df.index[-1].date()
 
     close = df["Close"]
+    body = abs(df["Close"] - df["Open"])
 
     df["EMA4"]  = ema(close, 4)
     df["EMA9"]  = ema(close, 9)
     df["EMA25"] = ema(close, 25)
-    df["EMA50"] = ema(close, 50)
 
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
+    # ===== Large candle filter =====
+    avg_body = body.iloc[-11:-1].mean()
+    large_candle = body.iloc[-1] > (1.5 * avg_body)
+
     prev_state = last_signals.get(name)
 
+    # =====================
+    # BUY
+    # =====================
     buy_signal = (
-        last["EMA4"] > last["EMA9"] and prev["EMA4"] <= prev["EMA9"] and
-        last["Close"] > last["EMA25"] and last["Close"] > last["EMA50"] and
-        df["EMA25"].iloc[-1] > df["EMA50"].iloc[-1]
+        last["EMA4"] > last["EMA9"] and
+        prev["EMA4"] <= prev["EMA9"] and
+        last["Close"] > last["EMA25"] and
+        last["EMA25"] >= prev["EMA25"] and
+        not large_candle
     )
 
+    # =====================
+    # SELL
+    # =====================
     sell_signal = (
         (last["EMA4"] < last["EMA9"] and prev["EMA4"] >= prev["EMA9"]) or
-        (last["Close"] < last["EMA25"]) or
-        (df["EMA25"].iloc[-1] < df["EMA50"].iloc[-1])
+        (last["Close"] < last["EMA25"])
     )
 
     if buy_signal:
@@ -127,15 +131,9 @@ for name, ticker in symbols.items():
         alerts.append(
             f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name}\n"
             f"Price: {last['Close']:.2f}\n"
-            f"Date: {candle_date}"
+            f"Date: {last_candle_date}"
         )
         new_signals[name] = curr_state
-
-# =====================
-# Data failure alert
-# =====================
-if data_failures:
-    send_telegram("⚠️ فشل تحميل بيانات لبعض الأسهم: " + ", ".join(data_failures))
 
 # =====================
 # Save signals
@@ -147,12 +145,9 @@ with open(SIGNALS_FILE, "w") as f:
 # Telegram output
 # =====================
 if alerts:
-    send_telegram("🚨 EGX 4 Moving Average Signals:\n\n" + "\n\n".join(alerts))
+    send_telegram("🚨 EGX MA Strategy Signals:\n\n" + "\n\n".join(alerts))
 else:
-    if last_candle_date:
-        send_telegram(
-            "ℹ️ لا توجد إشارات جديدة (4 Moving Average)\n\n"
-            f"آخر شمعة محسوبة:\n📅 {last_candle_date}"
-        )
-    else:
-        send_telegram("⚠️ لم يتم تحميل أي بيانات أسعار")
+    send_telegram(
+        "ℹ️ لا توجد إشارات جديدة\n\n"
+        f"last candle date:\n📅 {last_candle_date}"
+    )
