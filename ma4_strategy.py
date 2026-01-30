@@ -17,8 +17,8 @@ def send_telegram(text):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     try:
         requests.post(url, data={"chat_id": CHAT_ID, "text": text}, timeout=10)
-    except:
-        pass
+    except Exception as e:
+        print("Telegram send failed:", e)
 
 # =====================
 # EGX symbols
@@ -53,6 +53,8 @@ def fetch_data(ticker):
         )
         if df is None or df.empty:
             return None
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
         return df
     except:
         return None
@@ -60,12 +62,16 @@ def fetch_data(ticker):
 # =====================
 # Main Logic
 # =====================
-alerts = []
+results = []
+last_candle_date = None
 
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
     if df is None or len(df) < 30:
+        results.append(f"⚠️ {name} | NO DATA")
         continue
+
+    last_candle_date = df.index[-1].date()
 
     close = df["Close"]
 
@@ -73,26 +79,31 @@ for name, ticker in symbols.items():
     df["EMA9"]  = ema(close, 9)
     df["EMA25"] = ema(close, 25)
 
-    last = df.iloc[-1]
+    # ===== Explicit last values (IMPORTANT) =====
+    ema4  = df["EMA4"].iloc[-1]
+    ema9  = df["EMA9"].iloc[-1]
+    ema25 = df["EMA25"].iloc[-1]
+    price = df["Close"].iloc[-1]
 
-    if (
-    df["EMA4"].iloc[-1] > df["EMA9"].iloc[-1]
-    and df["Close"].iloc[-1] > df["EMA25"].iloc[-1]
-    )
+    # =====================
+    # STATE LOGIC (TEST)
+    # =====================
+    if ema4 > ema9 and price > ema25:
         state = "🟢 BUY"
-    else:
+    elif ema4 < ema9 and price < ema25:
         state = "🔴 SELL"
+    else:
+        state = "⚪ HOLD"
 
-    alerts.append(
-        f"{state} | {name}\n"
-        f"Price: {last['Close']:.2f}\n"
-        f"Date: {df.index[-1].date()}"
+    results.append(
+        f"{state} | {name} | {price:.2f}"
     )
 
 # =====================
 # Telegram output
 # =====================
 send_telegram(
-    "🧪 TEST MODE – ALL STOCK STATES\n\n" +
-    "\n\n".join(alerts)
+    "🧪 MA TEST MODE (SHOW ALL STATES)\n\n"
+    + "\n".join(results)
+    + f"\n\n📅 Last candle date: {last_candle_date}"
 )
