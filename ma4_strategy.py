@@ -1,4 +1,4 @@
-print("EGX ALERTS - MA Strategy (4 / 9 / 25) - RELAXED MODE")
+print("EGX ALERTS - MA Strategy (4 / 9 / 25) - RELAXED MODE WITH LARGE CANDLE FILTER")
 
 import yfinance as yf
 import requests
@@ -85,6 +85,7 @@ for name, ticker in symbols.items():
 
     last_candle_date = df.index[-1].date()
     close = df["Close"]
+    body = abs(df["Close"] - df["Open"])
 
     df["EMA4"]  = ema(close, 4)
     df["EMA9"]  = ema(close, 9)
@@ -93,38 +94,42 @@ for name, ticker in symbols.items():
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
+    # ===== Large candle filter (relaxed) =====
+    avg_body = body.iloc[-11:-1].mean()
+    large_candle = body.iloc[-1] > (2 * avg_body)  # كانت 1.5× قبل كده
+
     prev_state = last_signals.get(name)
 
     # =====================
-    # BUY - RELAXED
+    # BUY - RELAXED + LARGE CANDLE FILTER
     # =====================
     buy_signal = (
         last["EMA4"] > last["EMA9"] and
         prev["EMA4"] <= prev["EMA9"] and
-        last["Close"] > last["EMA25"]
-        # تجاه EMA25 ممكن يكون صاعد أو ثابت - مش شرط صارم
-        # large candle filter مؤقتًا مرفوض
+        last["Close"] > last["EMA25"] and
+        last["EMA25"] >= prev["EMA25"] and
+        not large_candle
     )
 
     # =====================
-    # SELL - RELAXED
+    # SELL - RELAXED + LARGE CANDLE FILTER
     # =====================
     sell_signal = (
         (last["EMA4"] < last["EMA9"] and prev["EMA4"] >= prev["EMA9"]) or
         (last["Close"] < last["EMA25"])
     )
 
+    # Append alert فقط لو BUY أو SELL
     if buy_signal:
         curr_state = "BUY"
     elif sell_signal:
         curr_state = "SELL"
     else:
-        curr_state = "HOLD"
+        continue  # لو لا شراء ولا بيع - ما ترسلش إشعار
 
-    # Append alert لو مختلف عن الحالة السابقة
     if curr_state != prev_state:
         alerts.append(
-            f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL' if curr_state=='SELL' else '⚪ HOLD'} | {name}\n"
+            f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name}\n"
             f"Price: {last['Close']:.2f}\n"
             f"Date: {last_candle_date}"
         )
@@ -140,7 +145,7 @@ with open(SIGNALS_FILE, "w") as f:
 # Telegram output
 # =====================
 if alerts:
-    send_telegram("🚨 EGX MA Strategy Signals (RELAXED MODE):\n\n" + "\n\n".join(alerts))
+    send_telegram("🚨 EGX MA Strategy Signals (RELAXED + CANDLE FILTER):\n\n" + "\n\n".join(alerts))
 else:
     send_telegram(
         "ℹ️ لا توجد إشارات جديدة\n\n"
