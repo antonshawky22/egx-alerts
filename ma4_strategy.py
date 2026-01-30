@@ -75,7 +75,10 @@ for name, ticker in symbols.items():
 
     last = df.iloc[-1]
 
-    if last["EMA4"] > last["EMA9"] and last["Close"] > last["EMA25"]:
+    if (
+    df["EMA4"].iloc[-1] > df["EMA9"].iloc[-1]
+    and df["Close"].iloc[-1] > df["EMA25"].iloc[-1]
+    )
         state = "🟢 BUY"
     else:
         state = "🔴 SELL"
