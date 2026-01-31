@@ -50,6 +50,7 @@ except:
 
 new_signals = last_signals.copy()
 alerts = []
+data_failures = []
 last_candle_date = None
 
 # =====================
@@ -81,6 +82,7 @@ def fetch_data(ticker):
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
     if df is None or len(df) < 30:
+        data_failures.append(name)
         continue
 
     last_candle_date = df.index[-1].date()
@@ -96,12 +98,12 @@ for name, ticker in symbols.items():
 
     # ===== Large candle filter (relaxed) =====
     avg_body = body.iloc[-11:-1].mean()
-    large_candle = body.iloc[-1] > (2 * avg_body)  # كانت 1.5× قبل كده
+    large_candle = body.iloc[-1] > (2 * avg_body)
 
     prev_state = last_signals.get(name)
 
     # =====================
-    # BUY - RELAXED + LARGE CANDLE FILTER
+    # BUY
     # =====================
     buy_signal = (
         last["EMA4"] > last["EMA9"] and
@@ -112,20 +114,19 @@ for name, ticker in symbols.items():
     )
 
     # =====================
-    # SELL - RELAXED + LARGE CANDLE FILTER
+    # SELL
     # =====================
     sell_signal = (
         (last["EMA4"] < last["EMA9"] and prev["EMA4"] >= prev["EMA9"]) or
         (last["Close"] < last["EMA25"])
     )
 
-    # Append alert فقط لو BUY أو SELL
     if buy_signal:
         curr_state = "BUY"
     elif sell_signal:
         curr_state = "SELL"
     else:
-        continue  # لو لا شراء ولا بيع - ما ترسلش إشعار
+        continue
 
     if curr_state != prev_state:
         alerts.append(
@@ -134,6 +135,12 @@ for name, ticker in symbols.items():
             f"Date: {last_candle_date}"
         )
         new_signals[name] = curr_state
+
+# =====================
+# Data failure alert
+# =====================
+if data_failures:
+    send_telegram("⚠️ فشل تحميل بيانات لبعض الأسهم:\n" + ", ".join(data_failures))
 
 # =====================
 # Save signals
