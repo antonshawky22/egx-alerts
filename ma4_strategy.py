@@ -40,7 +40,7 @@ symbols = {
 # =====================
 # Load last signals
 # =====================
-SIGNALS_FILE = "last_signals_ma4.json"
+SIGNALS_FILE = "last_signals.json"
 
 try:
     with open(SIGNALS_FILE, "r") as f:
@@ -168,7 +168,7 @@ with open(SIGNALS_FILE, "w") as f:
 # Telegram output
 # =====================
 if alerts:
-    send_telegram("🚨 EGX MA Strategy Signals (RELAXED + FAST SELL):\n\n" + "\n\n".join(alerts))
+    send_telegram("🚨 EGX MA S Signals:\n\n" + "\n\n".join(alerts))
 else:
     send_telegram(
         "ℹ️ لا توجد إشارات جديدة\n\n"
