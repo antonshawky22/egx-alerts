@@ -1,4 +1,4 @@
-print("EGX ALERTS - MA Strategy (4 / 9 / 25) - RELAXED MODE WITH LARGE CANDLE FILTER")
+print("EGX ALERTS - MA Strategy (4 / 9 / 25) - RELAXED MODE + FAST SELL")
 
 import yfinance as yf
 import requests
@@ -59,6 +59,15 @@ last_candle_date = None
 def ema(series, period):
     return series.ewm(span=period, adjust=False).mean()
 
+def rsi(series, period=14):
+    delta = series.diff()
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+    avg_gain = gain.rolling(period).mean()
+    avg_loss = loss.rolling(period).mean()
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
+
 def fetch_data(ticker):
     try:
         df = yf.download(
@@ -87,40 +96,47 @@ for name, ticker in symbols.items():
 
     last_candle_date = df.index[-1].date()
     close = df["Close"]
-    body = abs(df["Close"] - df["Open"])
+    open_ = df["Open"]
+    body = abs(close - open_)
 
+    df["EMA2"]  = ema(close, 2)
+    df["EMA3"]  = ema(close, 3)
     df["EMA4"]  = ema(close, 4)
+    df["EMA5"]  = ema(close, 5)
     df["EMA9"]  = ema(close, 9)
     df["EMA25"] = ema(close, 25)
+    df["RSI14"] = rsi(close, 14)
 
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
-    # ===== Large candle filter (relaxed) =====
+    # ===== Large candle filter - بسيط =====
     avg_body = body.iloc[-11:-1].mean()
-    large_candle = body.iloc[-1] > (2 * avg_body)
+    large_candle = body.iloc[-1] > (3 * avg_body)  # خفيف جدا، لا يمنع الإشارة
 
     prev_state = last_signals.get(name)
 
     # =====================
-    # BUY
+    # BUY - EMA 4 & 9 & 25
     # =====================
     buy_signal = (
         last["EMA4"] > last["EMA9"] and
         prev["EMA4"] <= prev["EMA9"] and
         last["Close"] > last["EMA25"] and
-        last["EMA25"] >= prev["EMA25"] and
-        not large_candle
+        last["EMA25"] >= prev["EMA25"]
     )
 
     # =====================
-    # SELL
+    # SELL - FAST EMA 3 & 5 OR RSI14 ≥ 80
     # =====================
     sell_signal = (
-        (last["EMA4"] < last["EMA9"] and prev["EMA4"] >= prev["EMA9"]) or
-        (last["Close"] < last["EMA25"])
+        (last["EMA3"] < last["EMA5"] and prev["EMA3"] >= prev["EMA5"]) or
+        (last["RSI14"] >= 80)
     )
 
+    # =====================
+    # Append alert فقط لو BUY أو SELL
+    # =====================
     if buy_signal:
         curr_state = "BUY"
     elif sell_signal:
@@ -152,7 +168,7 @@ with open(SIGNALS_FILE, "w") as f:
 # Telegram output
 # =====================
 if alerts:
-    send_telegram("🚨 EGX MA Strategy Signals (RELAXED + CANDLE FILTER):\n\n" + "\n\n".join(alerts))
+    send_telegram("🚨 EGX MA Strategy Signals (RELAXED + FAST SELL):\n\n" + "\n\n".join(alerts))
 else:
     send_telegram(
         "ℹ️ لا توجد إشارات جديدة\n\n"
