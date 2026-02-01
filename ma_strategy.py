@@ -135,20 +135,33 @@ for name, ticker in symbols.items():
     )
 
     # =====================
-    # Append alert فقط لو BUY أو SELL
+    # Determine signal reason
     # =====================
+    signal_reasons = []
+
     if buy_signal:
         curr_state = "BUY"
+        signal_reasons = [
+            "EMA4 > EMA9",
+            "Close > EMA25"
+        ]
     elif sell_signal:
         curr_state = "SELL"
+        if last["EMA3"] < last["EMA5"] and prev["EMA3"] >= prev["EMA5"]:
+            signal_reasons = ["EMA3 < EMA5"]
+        elif last["RSI14"] >= 80:
+            signal_reasons = ["RSI14 ≥ 80"]
     else:
         continue
 
+    # =====================
+    # Append alert
+    # =====================
     if curr_state != prev_state:
         alerts.append(
-            f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name}\n"
-            f"Price: {last['Close']:.2f}\n"
-            f"Date: {last_candle_date}"
+            f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name} | {last['Close']:.2f}\n"
+            + "\n".join(signal_reasons) + "\n"
+            f"{last_candle_date}"
         )
         new_signals[name] = curr_state
 
