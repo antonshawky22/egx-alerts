@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
 
   schedule:
+    - cron: '0 4 * * *'  # 6 صباحًا بتوقيت مصر
     - cron: '0 5 * * *'  # 7 صباحًا بتوقيت مصر
-    - cron: '0 6 * * *'  # 8 صباحًا بتوقيت مصر
 
 jobs:
   run:
@@ -31,13 +31,13 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python ma4_strategy.py
+        run: python ma_strategy.py
 
       - name: Commit last signals
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          git add last_signals_ma4.json
+          git add last_signals.json
           git diff --cached --quiet || git commit -m "Update last signals [auto]"
           git push
