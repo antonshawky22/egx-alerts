@@ -184,6 +184,6 @@ if alerts:
     send_telegram("🚨 EGX MA S Signals:\n\n" + "\n\n".join(alerts))
 else:
     send_telegram(
-        "ℹ️ لا توجد إشارات جديدة\n\n"
+        " MA S ℹ️ لا توجد إشارات جديدة\n\n"
         f"last candle date:\n📅 {last_candle_date}"
     )
