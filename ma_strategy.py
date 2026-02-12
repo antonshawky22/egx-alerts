@@ -1,8 +1,9 @@
-print("EGX TREND CLASSIFIER - TEST MODE (15 STOCKS)")
+print("EGX ALERTS - MA Strategy (4 / 9 / 25) - RELAXED MODE + FAST SELL")
 
 import yfinance as yf
 import requests
 import os
+import json
 import pandas as pd
 
 # =====================
@@ -13,7 +14,6 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def send_telegram(text):
     if not TOKEN or not CHAT_ID:
-        print(text)
         return
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     try:
@@ -22,30 +22,36 @@ def send_telegram(text):
         print("Telegram send failed:", e)
 
 # =====================
-# Selected 15 Stocks Only
+# EGX symbols
 # =====================
 symbols = {
-    # 🟢 From List A
-    "ETEL": "ETEL.CA",
-    "COMI": "COMI.CA",
-    "FWRY": "FWRY.CA",
-    "TMGH": "TMGH.CA",
-    "SWDY": "SWDY.CA",
-
-    # 🟡 From List B
-    "EAST": "EAST.CA",
-    "AMOC": "AMOC.CA",
-    "OLFI": "OLFI.CA",
-    "PHDC": "PHDC.CA",
-    "ISPH": "ISPH.CA",
-
-    # 🔴 From List C
-    "BLTN": "BLTN.CA",
-    "TAQA": "TAQA.CA",
-    "CAED": "CAED.CA",
-    "ACTF": "ACTF.CA",
-    "ELSH": "ELSH.CA"
+    "OFH": "OFH.CA","OLFI": "OLFI.CA","EMFD": "EMFD.CA","ETEL": "ETEL.CA",
+    "EAST": "EAST.CA","EFIH": "EFIH.CA","ABUK": "ABUK.CA","OIH": "OIH.CA",
+    "SWDY": "SWDY.CA","ISPH": "ISPH.CA","ATQA": "ATQA.CA","MTIE": "MTIE.CA",
+    "ELEC": "ELEC.CA","HRHO": "HRHO.CA","ORWE": "ORWE.CA","JUFO": "JUFO.CA",
+    "DSCW": "DSCW.CA","SUGR": "SUGR.CA","ELSH": "ELSH.CA","RMDA": "RMDA.CA",
+    "RAYA": "RAYA.CA","EEII": "EEII.CA","MPCO": "MPCO.CA","GBCO": "GBCO.CA",
+    "TMGH": "TMGH.CA","ORHD": "ORHD.CA","AMOC": "AMOC.CA","FWRY": "FWRY.CA",
+    "COMI": "COMI.CA","ADIB": "ADIB.CA","PHDC": "PHDC.CA",
+    "EGTS": "EGTS.CA","MCQE": "MCQE.CA","SKPC": "SKPC.CA",
+    "EGAL": "EGAL.CA"
 }
+
+# =====================
+# Load last signals
+# =====================
+SIGNALS_FILE = "last_signals.json"
+
+try:
+    with open(SIGNALS_FILE, "r") as f:
+        last_signals = json.load(f)
+except:
+    last_signals = {}
+
+new_signals = last_signals.copy()
+alerts = []
+data_failures = []
+last_candle_date = None
 
 # =====================
 # Helpers
@@ -80,64 +86,104 @@ def fetch_data(ticker):
         return None
 
 # =====================
-# Trend Classification Logic
+# Main Logic
 # =====================
-def classify_trend(last):
-    if last["Close"] > last["EMA75"]:
-        if last["EMA6"] > last["EMA10"]:
-            return "🟢 UP"
-        else:
-            return "🟡 UP (weak)"
-    elif last["Close"] < last["EMA75"]:
-        if last["EMA6"] < last["EMA10"]:
-            return "🔴 DOWN"
-        else:
-            return "🟡 DOWN (weak)"
-    else:
-        return "🟡 SIDEWAYS"
-
-# =====================
-# Main Execution
-# =====================
-report_lines = []
-last_candle_date = None
-
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
-
-    if df is None or len(df) < 100:
-        report_lines.append(f"{name} ❌ Data Error")
+    if df is None or len(df) < 30:
+        data_failures.append(name)
         continue
 
+    last_candle_date = df.index[-1].date()
     close = df["Close"]
+    open_ = df["Open"]
+    body = abs(close - open_)
 
-    df["EMA6"] = ema(close, 6)
-    df["EMA10"] = ema(close, 10)
-    df["EMA75"] = ema(close, 75)
+    df["EMA2"]  = ema(close, 2)
+    df["EMA3"]  = ema(close, 3)
+    df["EMA4"]  = ema(close, 4)
+    df["EMA5"]  = ema(close, 5)
+    df["EMA9"]  = ema(close, 9)
+    df["EMA25"] = ema(close, 25)
     df["RSI14"] = rsi(close, 14)
 
     last = df.iloc[-1]
-    last_candle_date = df.index[-1].date()
+    prev = df.iloc[-2]
 
-    trend = classify_trend(last)
+    # ===== Large candle filter - بسيط =====
+    avg_body = body.iloc[-11:-1].mean()
+    large_candle = body.iloc[-1] > (3 * avg_body)  # خفيف جدا، لا يمنع الإشارة
 
-    report_lines.append(
-        f"{trend} | {name}\n"
-        f"Close: {last['Close']:.2f}\n"
-        f"EMA6: {last['EMA6']:.2f}\n"
-        f"EMA10: {last['EMA10']:.2f}\n"
-        f"EMA75: {last['EMA75']:.2f}\n"
-        f"RSI14: {last['RSI14']:.2f}\n"
+    prev_state = last_signals.get(name)
+
+    # =====================
+    # BUY - EMA 4 & 9 & 25
+    # =====================
+    buy_signal = (
+        last["EMA4"] > last["EMA9"] and
+        prev["EMA4"] <= prev["EMA9"] and
+        last["Close"] > last["EMA25"] and
+        last["EMA25"] >= prev["EMA25"]
     )
 
-# =====================
-# Send Report
-# =====================
-if report_lines:
-    send_telegram(
-        "📊 EGX Trend Classification Report\n\n"
-        + "\n".join(report_lines)
-        + f"\n📅 Last Candle: {last_candle_date}"
+    # =====================
+    # SELL - FAST EMA 3 & 5 OR RSI14 ≥ 80
+    # =====================
+    sell_signal = (
+        (last["EMA3"] < last["EMA5"] and prev["EMA3"] >= prev["EMA5"]) or
+        (last["RSI14"] >= 80)
     )
+
+    # =====================
+    # Determine signal reason
+    # =====================
+    signal_reasons = []
+
+    if buy_signal:
+        curr_state = "BUY"
+        signal_reasons = [
+            "EMA4 > EMA9",
+            "Close > EMA25"
+        ]
+    elif sell_signal:
+        curr_state = "SELL"
+        if last["EMA3"] < last["EMA5"] and prev["EMA3"] >= prev["EMA5"]:
+            signal_reasons = ["EMA3 < EMA5"]
+        elif last["RSI14"] >= 80:
+            signal_reasons = ["RSI14 ≥ 80"]
+    else:
+        continue
+
+    # =====================
+    # Append alert
+    # =====================
+    if curr_state != prev_state:
+        alerts.append(
+            f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name} | {last['Close']:.2f}\n"
+            + "\n".join(signal_reasons) + "\n"
+            f"{last_candle_date}"
+        )
+        new_signals[name] = curr_state
+
+# =====================
+# Data failure alert
+# =====================
+if data_failures:
+    send_telegram("⚠️ فشل تحميل بيانات لبعض الأسهم:\n" + ", ".join(data_failures))
+
+# =====================
+# Save signals
+# =====================
+with open(SIGNALS_FILE, "w") as f:
+    json.dump(new_signals, f)
+
+# =====================
+# Telegram output
+# =====================
+if alerts:
+    send_telegram("🚨 EGX MA S Signals:\n\n" + "\n\n".join(alerts))
 else:
-    send_telegram("⚠️ No Data")
+    send_telegram(
+        " MA S ℹ️ لا توجد إشارات جديدة\n\n"
+        f"last candle date:\n📅 {last_candle_date}"
+    )
