@@ -20,8 +20,8 @@ SYMBOLS = [
     "PHDC.CA","MCQE.CA","SKPC.CA","EGAL.CA"
 ]
 
-LOOKBACK = 50
-DEPTH = 8
+LOOKBACK = 50       # عدد الشموع السابقة للحساب
+DEPTH = 8           # عمق هيكل السوق
 SIDEWAYS_THRESHOLD = 0.04
 RANGE_ENTRY_PERCENT = 0.05
 STATE_FILE = "signals_state.json"
@@ -59,13 +59,15 @@ def get_data(symbol):
         df = yf.download(symbol, period="6mo", interval="1d", progress=False)
         if df.empty or len(df) < LOOKBACK:
             return None
-        return df.tail(LOOKBACK).copy()
+        df = df.tail(LOOKBACK).copy()
+        df.reset_index(inplace=True)
+        return df
     except:
         return None
 
 def calculate_indicators(df):
-    df["EMA8"] = df["Close"].ewm(span=8).mean()
-    df["EMA15"] = df["Close"].ewm(span=15).mean()
+    df["EMA8"] = df["Close"].ewm(span=8, adjust=False).mean()
+    df["EMA15"] = df["Close"].ewm(span=15, adjust=False).mean()
 
     delta = df["Close"].diff()
     gain = delta.clip(lower=0)
@@ -76,21 +78,22 @@ def calculate_indicators(df):
     df["RSI"] = 100 - (100 / (1 + rs))
     return df
 
-def find_swings(close_series):
+def find_swings(close_array):
     highs = []
     lows = []
-    close_array = close_series.to_numpy().flatten()
     for i in range(DEPTH, len(close_array)-DEPTH):
         window = close_array[i-DEPTH:i+DEPTH+1]
-        if close_array[i] == np.max(window):
-            highs.append((i, close_array[i].item()))
-        if close_array[i] == np.min(window):
-            lows.append((i, close_array[i].item()))
+        center_val = close_array[i]
+        if center_val >= max(window):
+            highs.append((i, float(center_val)))
+        if center_val <= min(window):
+            lows.append((i, float(center_val)))
     return highs, lows
 
 def classify_trend(highs, lows):
     if len(highs) < 2 or len(lows) < 2:
         return "SIDEWAYS"
+
     last_high, prev_high = highs[-1][1], highs[-2][1]
     last_low, prev_low = lows[-1][1], lows[-2][1]
 
@@ -101,30 +104,41 @@ def classify_trend(highs, lows):
 
     high_diff = abs(last_high - prev_high) / prev_high
     low_diff = abs(last_low - prev_low) / prev_low
+
     if high_diff <= SIDEWAYS_THRESHOLD and low_diff <= SIDEWAYS_THRESHOLD:
         return "SIDEWAYS"
+
     return "SIDEWAYS"
 
 def detect_signal(df, trend, highs, lows):
     last = df.iloc[-1]
     prev = df.iloc[-2]
-    close = float(last["Close"].item())
+    close = last["Close"].item() if isinstance(last["Close"], pd.Series) else float(last["Close"])
     signal = None
     stop = None
 
     if trend == "UP":
-        if float(prev["EMA8"].item()) < float(prev["EMA15"].item()) and float(last["EMA8"].item()) > float(last["EMA15"].item()):
+        prev_ema8 = prev["EMA8"].item() if isinstance(prev["EMA8"], pd.Series) else float(prev["EMA8"])
+        prev_ema15 = prev["EMA15"].item() if isinstance(prev["EMA15"], pd.Series) else float(prev["EMA15"])
+        last_ema8 = last["EMA8"].item() if isinstance(last["EMA8"], pd.Series) else float(last["EMA8"])
+        last_ema15 = last["EMA15"].item() if isinstance(last["EMA15"], pd.Series) else float(last["EMA15"])
+
+        if prev_ema8 < prev_ema15 and last_ema8 > last_ema15:
             signal = "BUY"
-        elif float(prev["EMA8"].item()) > float(prev["EMA15"].item()) and float(last["EMA8"].item()) < float(last["EMA15"].item()):
+        elif prev_ema8 > prev_ema15 and last_ema8 < last_ema15:
             signal = "SELL"
         elif last["RSI"] >= 80:
             signal = "SELL"
+
         if lows:
             stop = min([l[1] for l in lows[-DEPTH:]])
 
     elif trend == "SIDEWAYS":
-        support = float(df["Close"].min())
-        resistance = float(df["Close"].max())
+        support_val = df["Close"].min()
+        resistance_val = df["Close"].max()
+        support = support_val.item() if isinstance(support_val, pd.Series) else float(support_val)
+        resistance = resistance_val.item() if isinstance(resistance_val, pd.Series) else float(resistance_val)
+
         dist_support = (close - support) / support
         dist_resist = (resistance - close) / resistance
 
@@ -153,29 +167,32 @@ for symbol in SYMBOLS:
         continue
 
     df = calculate_indicators(df)
-    highs, lows = find_swings(df["Close"])
+    highs, lows = find_swings(df["Close"].values)
     trend = classify_trend(highs, lows)
 
     previous_trend = state.get(symbol, {}).get("trend", "")
 
     # 🚧 أي تغيير اتجاه
     if previous_trend and previous_trend != trend:
-        price = round(df["Close"].iloc[-1].item(), 2)
+        price = df["Close"].iloc[-1].item() if isinstance(df["Close"].iloc[-1], pd.Series) else float(df["Close"].iloc[-1])
         messages.append(f"🚧 {symbol} | Trend: {previous_trend} → {trend} | {price}")
 
     signal, stop = detect_signal(df, trend, highs, lows)
 
-    # رسالة الشكل المتفق عليه
-    if signal:
-        price = round(df["Close"].iloc[-1].item(), 2)
+    # منع تكرار الإشارة
+    last_signal = state.get(symbol, {}).get("signal", "")
+    if signal and signal != last_signal:
+        price = df["Close"].iloc[-1].item() if isinstance(df["Close"].iloc[-1], pd.Series) else float(df["Close"].iloc[-1])
         stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop else ""
         if signal == "BUY":
             messages.append(f"🟢 {symbol} | {price} | {today}{stop_text}")
         elif signal == "SELL":
             messages.append(f"🔴 {symbol} | {price} | {today}{stop_text}")
 
-    # تحديث الحالة لتجنب تكرار الإشارات
-    state[symbol] = {"trend": trend, "date": today}
+        state[symbol] = {"trend": trend, "signal": signal, "date": today}
+    else:
+        state.setdefault(symbol, {})["trend"] = trend
+        state.setdefault(symbol, {})["date"] = today
 
 # =====================
 # SEND TELEGRAM
