@@ -1,19 +1,40 @@
-print("EGX ALERTS - MA Strategy (4 / 9 / 25) - RELAXED MODE + FAST SELL")
+print("🚦 EGX Alerts – Full Strategy (Trend Change Enabled)")
 
 import yfinance as yf
-import requests
-import os
-import json
 import pandas as pd
+import numpy as np
+import json
+import os
+from datetime import datetime
+import requests
 
 # =====================
-# Telegram settings
+# SETTINGS
 # =====================
+SYMBOLS = [
+    "OFH.CA","OLFI.CA","EMFD.CA","ETEL.CA","EAST.CA","EFIH.CA",
+    "ABUK.CA","OIH.CA","SWDY.CA","ISPH.CA","ATQA.CA","MTIE.CA",
+    "ELEC.CA","HRHO.CA","ORWE.CA","JUFO.CA","DSCW.CA","SUGR.CA",
+    "ELSH.CA","RMDA.CA","RAYA.CA","EEII.CA","MPCO.CA","GBCO.CA",
+    "TMGH.CA","ORHD.CA","AMOC.CA","FWRY.CA","COMI.CA","ADIB.CA",
+    "PHDC.CA","MCQE.CA","SKPC.CA","EGAL.CA"
+]
+
+LOOKBACK = 130
+DEPTH = 4
+SIDEWAYS_THRESHOLD = 0.04
+RANGE_ENTRY_PERCENT = 0.05
+STATE_FILE = "signals_state.json"
+
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
+# =====================
+# TELEGRAM
+# =====================
 def send_telegram(text):
     if not TOKEN or not CHAT_ID:
+        print("Telegram credentials not set")
         return
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     try:
@@ -22,168 +43,148 @@ def send_telegram(text):
         print("Telegram send failed:", e)
 
 # =====================
-# EGX symbols
+# LOAD STATE
 # =====================
-symbols = {
-    "OFH": "OFH.CA","OLFI": "OLFI.CA","EMFD": "EMFD.CA","ETEL": "ETEL.CA",
-    "EAST": "EAST.CA","EFIH": "EFIH.CA","ABUK": "ABUK.CA","OIH": "OIH.CA",
-    "SWDY": "SWDY.CA","ISPH": "ISPH.CA","ATQA": "ATQA.CA","MTIE": "MTIE.CA",
-    "ELEC": "ELEC.CA","HRHO": "HRHO.CA","ORWE": "ORWE.CA","JUFO": "JUFO.CA",
-    "DSCW": "DSCW.CA","SUGR": "SUGR.CA","ELSH": "ELSH.CA","RMDA": "RMDA.CA",
-    "RAYA": "RAYA.CA","EEII": "EEII.CA","MPCO": "MPCO.CA","GBCO": "GBCO.CA",
-    "TMGH": "TMGH.CA","ORHD": "ORHD.CA","AMOC": "AMOC.CA","FWRY": "FWRY.CA",
-    "COMI": "COMI.CA","ADIB": "ADIB.CA","PHDC": "PHDC.CA",
-    "EGTS": "EGTS.CA","MCQE": "MCQE.CA","SKPC": "SKPC.CA",
-    "EGAL": "EGAL.CA"
-}
+if os.path.exists(STATE_FILE):
+    with open(STATE_FILE, "r") as f:
+        state = json.load(f)
+else:
+    state = {}
 
 # =====================
-# Load last signals
+# DATA FUNCTIONS
 # =====================
-SIGNALS_FILE = "last_signals.json"
-
-try:
-    with open(SIGNALS_FILE, "r") as f:
-        last_signals = json.load(f)
-except:
-    last_signals = {}
-
-new_signals = last_signals.copy()
-alerts = []
-data_failures = []
-last_candle_date = None
-
-# =====================
-# Helpers
-# =====================
-def ema(series, period):
-    return series.ewm(span=period, adjust=False).mean()
-
-def rsi(series, period=14):
-    delta = series.diff()
-    gain = delta.where(delta > 0, 0)
-    loss = -delta.where(delta < 0, 0)
-    avg_gain = gain.rolling(period).mean()
-    avg_loss = loss.rolling(period).mean()
-    rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
-
-def fetch_data(ticker):
+def get_data(symbol):
     try:
-        df = yf.download(
-            ticker,
-            period="6mo",
-            interval="1d",
-            auto_adjust=True,
-            progress=False
-        )
-        if df is None or df.empty:
+        df = yf.download(symbol, period="6mo", interval="1d", progress=False)
+        if df.empty or len(df) < LOOKBACK:
             return None
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        return df
+        return df.tail(LOOKBACK).copy()
     except:
         return None
 
-# =====================
-# Main Logic
-# =====================
-for name, ticker in symbols.items():
-    df = fetch_data(ticker)
-    if df is None or len(df) < 30:
-        data_failures.append(name)
-        continue
+def calculate_indicators(df):
+    df["EMA8"] = df["Close"].ewm(span=8).mean()
+    df["EMA15"] = df["Close"].ewm(span=15).mean()
 
-    last_candle_date = df.index[-1].date()
-    close = df["Close"]
-    open_ = df["Open"]
-    body = abs(close - open_)
+    delta = df["Close"].diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.rolling(14).mean()
+    avg_loss = loss.rolling(14).mean()
+    rs = avg_gain / avg_loss
+    df["RSI"] = 100 - (100 / (1 + rs))
+    return df
 
-    df["EMA2"]  = ema(close, 2)
-    df["EMA3"]  = ema(close, 3)
-    df["EMA4"]  = ema(close, 4)
-    df["EMA5"]  = ema(close, 5)
-    df["EMA9"]  = ema(close, 9)
-    df["EMA25"] = ema(close, 25)
-    df["RSI14"] = rsi(close, 14)
+def find_swings(close):
+    highs = []
+    lows = []
+    for i in range(DEPTH, len(close)-DEPTH):
+        window = close[i-DEPTH:i+DEPTH+1]
+        if close[i] == window.max():
+            highs.append((i, close[i]))
+        if close[i] == window.min():
+            lows.append((i, close[i]))
+    return highs, lows
 
+def classify_trend(highs, lows):
+    if len(highs) < 2 or len(lows) < 2:
+        return "SIDEWAYS"
+
+    last_high, prev_high = highs[-1][1], highs[-2][1]
+    last_low, prev_low = lows[-1][1], lows[-2][1]
+
+    if last_high > prev_high and last_low > prev_low:
+        return "UP"
+    if last_high < prev_high and last_low < prev_low:
+        return "DOWN"
+
+    high_diff = abs(last_high - prev_high) / prev_high
+    low_diff = abs(last_low - prev_low) / prev_low
+
+    if high_diff <= SIDEWAYS_THRESHOLD and low_diff <= SIDEWAYS_THRESHOLD:
+        return "SIDEWAYS"
+
+    return "SIDEWAYS"
+
+def detect_signal(df, trend, highs, lows):
     last = df.iloc[-1]
     prev = df.iloc[-2]
+    close = last["Close"]
+    signal = None
+    stop = None
 
-    # ===== Large candle filter - بسيط =====
-    avg_body = body.iloc[-11:-1].mean()
-    large_candle = body.iloc[-1] > (3 * avg_body)  # خفيف جدا، لا يمنع الإشارة
+    if trend == "UP":
+        if prev["EMA8"] < prev["EMA15"] and last["EMA8"] > last["EMA15"]:
+            signal = "BUY"
+        elif prev["EMA8"] > prev["EMA15"] and last["EMA8"] < last["EMA15"]:
+            signal = "SELL"
+        elif last["RSI"] >= 80:
+            signal = "SELL"
+        if lows:
+            stop = min([l[1] for l in lows[-DEPTH:]])
 
-    prev_state = last_signals.get(name)
+    elif trend == "SIDEWAYS":
+        support = df["Close"].min()
+        resistance = df["Close"].max()
+        dist_support = (close - support) / support
+        dist_resist = (resistance - close) / resistance
 
-    # =====================
-    # BUY - EMA 4 & 9 & 25
-    # =====================
-    buy_signal = (
-        last["EMA4"] > last["EMA9"] and
-        prev["EMA4"] <= prev["EMA9"] and
-        last["Close"] > last["EMA25"] and
-        last["EMA25"] >= prev["EMA25"]
-    )
+        if dist_support <= RANGE_ENTRY_PERCENT:
+            signal = "BUY"
+            stop = support
+        elif dist_resist <= RANGE_ENTRY_PERCENT:
+            signal = "SELL"
 
-    # =====================
-    # SELL - FAST EMA 3 & 5 OR RSI14 ≥ 80
-    # =====================
-    sell_signal = (
-        (last["EMA3"] < last["EMA5"] and prev["EMA3"] >= prev["EMA5"]) or
-        (last["RSI14"] >= 80)
-    )
+    elif trend == "DOWN":
+        signal = None
 
-    # =====================
-    # Determine signal reason
-    # =====================
-    signal_reasons = []
+    return signal, stop
 
-    if buy_signal:
-        curr_state = "BUY"
-        signal_reasons = [
-            "EMA4 > EMA9",
-            "Close > EMA25"
-        ]
-    elif sell_signal:
-        curr_state = "SELL"
-        if last["EMA3"] < last["EMA5"] and prev["EMA3"] >= prev["EMA5"]:
-            signal_reasons = ["EMA3 < EMA5"]
-        elif last["RSI14"] >= 80:
-            signal_reasons = ["RSI14 ≥ 80"]
-    else:
+# =====================
+# MAIN LOOP
+# =====================
+messages = []
+today = str(datetime.today().date())
+
+for symbol in SYMBOLS:
+    df = get_data(symbol)
+    if df is None:
+        messages.append(f"⚠️ {symbol} data failure")
         continue
 
-    # =====================
-    # Append alert
-    # =====================
-    if curr_state != prev_state:
-        alerts.append(
-            f"{'🟢 BUY' if curr_state == 'BUY' else '🔴 SELL'} | {name} | {last['Close']:.2f}\n"
-            + "\n".join(signal_reasons) + "\n"
-            f"{last_candle_date}"
-        )
-        new_signals[name] = curr_state
+    df = calculate_indicators(df)
+    highs, lows = find_swings(df["Close"].values)
+    trend = classify_trend(highs, lows)
+
+    previous_trend = state.get(symbol, {}).get("trend", "")
+
+    # 🚧 أي تغيير اتجاه
+    if previous_trend and previous_trend != trend:
+        price = round(df["Close"].iloc[-1], 2)
+        messages.append(f"🚧 {symbol} | Trend: {previous_trend} → {trend} | {price}")
+
+    signal, stop = detect_signal(df, trend, highs, lows)
+
+    if signal:
+        price = round(df["Close"].iloc[-1], 2)
+        stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop else ""
+        if signal == "BUY":
+            messages.append(f"🟢 {symbol} | {trend} | {price}{stop_text}")
+        elif signal == "SELL":
+            messages.append(f"🔴 {symbol} | {trend} | {price}{stop_text}")
+
+    state[symbol] = {"trend": trend, "date": today}
 
 # =====================
-# Data failure alert
+# SEND TELEGRAM
 # =====================
-if data_failures:
-    send_telegram("⚠️ فشل تحميل بيانات لبعض الأسهم:\n" + ", ".join(data_failures))
+if messages:
+    text = f"🚦 EGX Alerts – {today}\n\n" + "\n".join(messages)
+    send_telegram(text)
 
 # =====================
-# Save signals
+# SAVE STATE
 # =====================
-with open(SIGNALS_FILE, "w") as f:
-    json.dump(new_signals, f)
-
-# =====================
-# Telegram output
-# =====================
-if alerts:
-    send_telegram("🚨 EGX MA S Signals:\n\n" + "\n\n".join(alerts))
-else:
-    send_telegram(
-        " MA S ℹ️ لا توجد إشارات جديدة\n\n"
-        f"last candle date:\n📅 {last_candle_date}"
-    )
+with open(STATE_FILE, "w") as f:
+    json.dump(state, f, indent=4)
