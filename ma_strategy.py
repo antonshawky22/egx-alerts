@@ -1,4 +1,4 @@
-print("🚦 EGX Alerts – Full Strategy (Stable Version)")
+print("🚦 EGX Alerts – Full Strategy (Final Stable Version)")
 
 import yfinance as yf
 import pandas as pd
@@ -20,8 +20,8 @@ SYMBOLS = [
     "PHDC.CA","MCQE.CA","SKPC.CA","EGAL.CA"
 ]
 
-LOOKBACK = 50
-DEPTH = 8
+LOOKBACK = 15      # عدد الشموع السابقة
+DEPTH = 8          # عمق الحساب
 SIDEWAYS_THRESHOLD = 0.04
 RANGE_ENTRY_PERCENT = 0.05
 STATE_FILE = "signals_state.json"
@@ -79,17 +79,13 @@ def calculate_indicators(df):
 def find_swings(close_array):
     highs = []
     lows = []
-
-    # تحويل كل القيم ل float لتجنب مشاكل Series / numpy scalars
-    close_list = [float(x) for x in close_array]
-
-    for i in range(DEPTH, len(close_list)-DEPTH):
-        window = close_list[i-DEPTH:i+DEPTH+1]
-        center_val = close_list[i]
-        if center_val >= max(window):
-            highs.append((i, center_val))
-        if center_val <= min(window):
-            lows.append((i, center_val))
+    n = len(close_array)
+    for i in range(DEPTH, n - DEPTH):
+        window = close_array[i-DEPTH:i+DEPTH+1]
+        if close_array[i] == np.max(window):
+            highs.append((i, float(close_array[i])))
+        if close_array[i] == np.min(window):
+            lows.append((i, float(close_array[i])))
     return highs, lows
 
 def classify_trend(highs, lows):
@@ -113,32 +109,34 @@ def classify_trend(highs, lows):
     return "SIDEWAYS"
 
 def detect_signal(df, trend, highs, lows):
-    last_close = float(df["Close"].iloc[-1])
+    last = df.iloc[-1]
+    prev = df.iloc[-2]
+    close = float(last["Close"])
+
     signal = None
     stop = None
 
-    if trend == "UP":
-        prev_ema8 = float(df["EMA8"].iloc[-2])
-        prev_ema15 = float(df["EMA15"].iloc[-2])
-        last_ema8 = float(df["EMA8"].iloc[-1])
-        last_ema15 = float(df["EMA15"].iloc[-1])
+    prev_ema8 = float(prev["EMA8"])
+    prev_ema15 = float(prev["EMA15"])
+    last_ema8 = float(last["EMA8"])
+    last_ema15 = float(last["EMA15"])
+    last_rsi = float(last["RSI"])
 
+    if trend == "UP":
         if prev_ema8 < prev_ema15 and last_ema8 > last_ema15:
             signal = "BUY"
         elif prev_ema8 > prev_ema15 and last_ema8 < last_ema15:
             signal = "SELL"
-        elif float(df["RSI"].iloc[-1]) >= 80:
+        elif last_rsi >= 80:
             signal = "SELL"
-
         if lows:
-            stop = min([l[1] for l in lows[-DEPTH:]])
+            stop = min([float(l[1]) for l in lows[-DEPTH:]])
 
     elif trend == "SIDEWAYS":
         support = float(df["Close"].min())
         resistance = float(df["Close"].max())
-
-        dist_support = (last_close - support) / support
-        dist_resist = (resistance - last_close) / resistance
+        dist_support = (close - support) / support
+        dist_resist = (resistance - close) / resistance
 
         if dist_support <= RANGE_ENTRY_PERCENT:
             signal = "BUY"
@@ -168,36 +166,40 @@ for symbol in SYMBOLS:
     highs, lows = find_swings(df["Close"].values)
     trend = classify_trend(highs, lows)
 
-    prev_state = state.get(symbol, {})
-    previous_trend = prev_state.get("trend", "")
-    previous_signal = prev_state.get("signal", "")
-    previous_date = prev_state.get("date", "")
+    previous_trend = state.get(symbol, {}).get("trend", "")
+    previous_signal = state.get(symbol, {}).get("signal", "")
 
     # 🚧 أي تغيير اتجاه
     if previous_trend and previous_trend != trend:
-        messages.append(f"🚧 {symbol} | {previous_trend} → {trend} | {round(float(df['Close'].iloc[-1]),2)}")
+        price = round(float(df["Close"].iloc[-1]), 2)
+        messages.append(f"🚧 {symbol} | Trend: {previous_trend} → {trend} | {price}")
 
     signal, stop = detect_signal(df, trend, highs, lows)
 
-    # عدم تكرار نفس الإشارة لنفس اليوم
-    if signal and previous_signal != signal:
+    # عدم تكرار الإشارة
+    if signal and signal != previous_signal:
+        price = round(float(df["Close"].iloc[-1]), 2)
         stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop else ""
+        date_last = str(df.index[-1].date())
         if signal == "BUY":
-            messages.append(f"🟢 {symbol} | {trend} | {round(float(df['Close'].iloc[-1]),2)}{stop_text}")
+            messages.append(f"🟢 {symbol} | {trend} | {price} | {date_last}{stop_text}")
         elif signal == "SELL":
-            messages.append(f"🔴 {symbol} | {trend} | {round(float(df['Close'].iloc[-1]),2)}{stop_text}")
+            messages.append(f"🔴 {symbol} | {trend} | {price} | {date_last}{stop_text}")
+        state[symbol]["signal"] = signal
 
-    # تحديث حالة السهم
-    state[symbol] = {"trend": trend, "signal": signal, "date": today}
+    # تحديث الاتجاه والتاريخ
+    state[symbol]["trend"] = trend
+    state[symbol]["date"] = today
 
 # =====================
 # SEND TELEGRAM
 # =====================
 if messages:
-    text = f"🚦 EGX Alerts (Compact) – {today}\n\n" + "\n".join(messages)
+    text = f"🚦 EGX Alerts – {today}\n\n" + "\n".join(messages)
     send_telegram(text)
 else:
-    send_telegram(f"MA S ℹ️ لا توجد إشارات جديدة\n\nlast candle date:\n📅 {today}")
+    text = f"MA S ℹ️ لا توجد إشارات جديدة\n\nlast candle date:\n📅 {today}"
+    send_telegram(text)
 
 # =====================
 # SAVE STATE
