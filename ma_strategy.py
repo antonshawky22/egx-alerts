@@ -20,8 +20,8 @@ SYMBOLS = [
     "PHDC.CA","MCQE.CA","SKPC.CA","EGAL.CA"
 ]
 
-LOOKBACK = 50
-DEPTH = 8
+LOOKBACK = 50      # عدد الشموع السابقة
+DEPTH = 8          # عمق الحساب
 SIDEWAYS_THRESHOLD = 0.04
 RANGE_ENTRY_PERCENT = 0.05
 STATE_FILE = "signals_state.json"
@@ -81,10 +81,10 @@ def find_swings(close):
     lows = []
     for i in range(DEPTH, len(close)-DEPTH):
         window = close[i-DEPTH:i+DEPTH+1]
-        if close[i] == window.max():
-            highs.append((i, close[i]))
-        if close[i] == window.min():
-            lows.append((i, close[i]))
+        if close[i] == max(window):
+            highs.append((i, float(close[i])))
+        if close[i] == min(window):
+            lows.append((i, float(close[i])))
     return highs, lows
 
 def classify_trend(highs, lows):
@@ -110,35 +110,38 @@ def classify_trend(highs, lows):
 def detect_signal(df, trend, highs, lows):
     last = df.iloc[-1]
     prev = df.iloc[-2]
-    close = last["Close"]
+    close = float(last["Close"])
     signal = None
     stop = None
 
+    prev_ema8 = float(prev["EMA8"])
+    prev_ema15 = float(prev["EMA15"])
+    last_ema8 = float(last["EMA8"])
+    last_ema15 = float(last["EMA15"])
+    last_rsi = float(last["RSI"])
+
     if trend == "UP":
-        if prev["EMA8"] < prev["EMA15"] and last["EMA8"] > last["EMA15"]:
+        if prev_ema8 < prev_ema15 and last_ema8 > last_ema15:
             signal = "BUY"
-        elif prev["EMA8"] > prev["EMA15"] and last["EMA8"] < last["EMA15"]:
+        elif prev_ema8 > prev_ema15 and last_ema8 < last_ema15:
             signal = "SELL"
-        elif last["RSI"] >= 80:
+        elif last_rsi >= 80:
             signal = "SELL"
         if lows:
-            stop = float(np.min([l[1] for l in lows[-DEPTH:]]))
+            stop = min([float(l[1]) for l in lows[-DEPTH:]])
 
     elif trend == "SIDEWAYS":
-        # استخدام Series بشكل صحيح للحصول على قيمة مفردة
-        close_series = df["Close"]
-        if isinstance(close_series, pd.Series) and not close_series.empty:
-            support = float(close_series.min())
-            resistance = float(close_series.max())
-            dist_support = (close - support) / support
-            dist_resist = (resistance - close) / resistance
+        support = float(df["Close"].min())
+        resistance = float(df["Close"].max())
+        dist_support = (close - support) / support
+        dist_resist = (resistance - close) / resistance
 
-            if dist_support <= RANGE_ENTRY_PERCENT:
-                signal = "BUY"
-                stop = support
-            elif dist_resist <= RANGE_ENTRY_PERCENT:
-                signal = "SELL"
-                stop = support  # للعرضي نستخدم الدعم كستوب
+        if dist_support <= RANGE_ENTRY_PERCENT:
+            signal = "BUY"
+            stop = support
+        elif dist_resist <= RANGE_ENTRY_PERCENT:
+            signal = "SELL"
+            stop = resistance
 
     elif trend == "DOWN":
         signal = None
@@ -165,20 +168,19 @@ for symbol in SYMBOLS:
 
     # 🚧 أي تغيير اتجاه
     if previous_trend and previous_trend != trend:
-        price = round(df["Close"].iloc[-1], 2)
+        price = round(float(df["Close"].iloc[-1]), 2)
         messages.append(f"🚧 {symbol} | Trend: {previous_trend} → {trend} | {price}")
 
     signal, stop = detect_signal(df, trend, highs, lows)
 
     if signal:
-        price = round(df["Close"].iloc[-1], 2)
+        price = round(float(df["Close"].iloc[-1]), 2)
         stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop else ""
         if signal == "BUY":
             messages.append(f"🟢 {symbol} | {trend} | {price}{stop_text}")
         elif signal == "SELL":
             messages.append(f"🔴 {symbol} | {trend} | {price}{stop_text}")
 
-    # حفظ الاتجاه والتاريخ لمنع التكرار
     state[symbol] = {"trend": trend, "date": today}
 
 # =====================
@@ -188,7 +190,8 @@ if messages:
     text = f"🚦 EGX Alerts – {today}\n\n" + "\n".join(messages)
     send_telegram(text)
 else:
-    print("No new signal – last candle date:", today)
+    text = f"MA S ℹ️ لا توجد إشارات جديدة\n\nlast candle date:\n📅 {today}"
+    send_telegram(text)
 
 # =====================
 # SAVE STATE
