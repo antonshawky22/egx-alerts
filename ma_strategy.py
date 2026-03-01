@@ -20,8 +20,8 @@ SYMBOLS = [
     "PHDC.CA","MCQE.CA","SKPC.CA","EGAL.CA"
 ]
 
-LOOKBACK = 15
-DEPTH = 8
+LOOKBACK = 15      # عدد الشموع السابقة
+DEPTH = 8          # عمق الحساب
 SIDEWAYS_THRESHOLD = 0.04
 RANGE_ENTRY_PERCENT = 0.05
 STATE_FILE = "signals_state.json"
@@ -83,9 +83,9 @@ def find_swings(close_array):
     for i in range(DEPTH, n - DEPTH):
         window = close_array[i-DEPTH:i+DEPTH+1]
         if close_array[i] == np.max(window):
-            highs.append((i, float(close_array[i])))
+            highs.append((i, float(np.array(close_array[i]).item())))
         if close_array[i] == np.min(window):
-            lows.append((i, float(close_array[i])))
+            lows.append((i, float(np.array(close_array[i]).item())))
     return highs, lows
 
 def classify_trend(highs, lows):
@@ -108,27 +108,19 @@ def classify_trend(highs, lows):
 
     return "SIDEWAYS"
 
-# =====================
-# SAFE FLOAT HELPER
-# =====================
-def to_float(value):
-    if isinstance(value, pd.Series):
-        return float(value.iloc[0])
-    return float(value)
-
 def detect_signal(df, trend, highs, lows):
     last = df.iloc[-1]
     prev = df.iloc[-2]
+    close = float(last["Close"].values.item() if hasattr(last["Close"], 'values') else last["Close"])
 
-    close = to_float(last["Close"])
     signal = None
     stop = None
 
-    prev_ema8 = to_float(prev["EMA8"])
-    prev_ema15 = to_float(prev["EMA15"])
-    last_ema8 = to_float(last["EMA8"])
-    last_ema15 = to_float(last["EMA15"])
-    last_rsi = to_float(last["RSI"])
+    prev_ema8 = float(prev["EMA8"].values.item() if hasattr(prev["EMA8"], 'values') else prev["EMA8"])
+    prev_ema15 = float(prev["EMA15"].values.item() if hasattr(prev["EMA15"], 'values') else prev["EMA15"])
+    last_ema8 = float(last["EMA8"].values.item() if hasattr(last["EMA8"], 'values') else last["EMA8"])
+    last_ema15 = float(last["EMA15"].values.item() if hasattr(last["EMA15"], 'values') else last["EMA15"])
+    last_rsi = float(last["RSI"].values.item() if hasattr(last["RSI"], 'values') else last["RSI"])
 
     if trend == "UP":
         if prev_ema8 < prev_ema15 and last_ema8 > last_ema15:
@@ -138,36 +130,32 @@ def detect_signal(df, trend, highs, lows):
         elif last_rsi >= 80:
             signal = "SELL"
         if lows:
-            stop = min([l[1] for l in lows[-DEPTH:]])
+            stop = min([float(l[1]) for l in lows[-DEPTH:]])
 
     elif trend == "SIDEWAYS":
-        support = to_float(df["Close"].min())
-        resistance = to_float(df["Close"].max())
-        dist_support = (close - support) / support
-        dist_resist = (resistance - close) / resistance
+        support = float(df["Close"].min().item() if hasattr(df["Close"].min(), 'item') else df["Close"].min())
+        resistance = float(df["Close"].max().item() if hasattr(df["Close"].max(), 'item') else df["Close"].max())
+        dist_support = (close - support) / support * 100
+        dist_resist = (resistance - close) / resistance * 100
 
-        if dist_support <= RANGE_ENTRY_PERCENT:
+        if dist_support <= RANGE_ENTRY_PERCENT * 100:
             signal = "BUY"
             stop = support
-        elif dist_resist <= RANGE_ENTRY_PERCENT:
+        elif dist_resist <= RANGE_ENTRY_PERCENT * 100:
             signal = "SELL"
             stop = resistance
 
     elif trend == "DOWN":
         signal = None
 
-    return signal, stop
+    return signal, stop, dist_support if trend=="SIDEWAYS" else None, dist_resist if trend=="SIDEWAYS" else None
 
 # =====================
 # MAIN LOOP
 # =====================
-grouped = {
-    "UP": [],
-    "SIDEWAYS": [],
-    "DOWN": [],
-    "CHANGES": []
-}
-
+messages_up = []
+messages_side = []
+messages_down = []
 today = str(datetime.today().date())
 
 for symbol in SYMBOLS:
@@ -178,54 +166,57 @@ for symbol in SYMBOLS:
     df = calculate_indicators(df)
     highs, lows = find_swings(df["Close"].values)
     trend = classify_trend(highs, lows)
+    last_date = df.index[-1].date()
 
     previous_trend = state.get(symbol, {}).get("trend", "")
 
+    # 🚧 أي تغيير اتجاه
     if previous_trend and previous_trend != trend:
-        price = round(to_float(df["Close"].iloc[-1]), 2)
-        grouped["CHANGES"].append(f"{symbol} | {previous_trend} → {trend} | {price}")
+        price = round(float(df["Close"].iloc[-1].item() if hasattr(df["Close"].iloc[-1], 'item') else df["Close"].iloc[-1]), 2)
+        messages_up.append(f"🚧 {symbol} | Trend: {previous_trend} → {trend} | {price} | {last_date}")
 
-    signal, stop = detect_signal(df, trend, highs, lows)
+    signal, stop, dist_support, dist_resist = detect_signal(df, trend, highs, lows)
 
-    if signal:
-        price = round(to_float(df["Close"].iloc[-1]), 2)
-        stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop else ""
+    price = round(float(df["Close"].iloc[-1].item() if hasattr(df["Close"].iloc[-1], 'item') else df["Close"].iloc[-1]), 2)
+    stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop else ""
 
-        if signal == "BUY":
-            grouped[trend].append(f"🟢 {symbol} | {price}{stop_text}")
-        elif signal == "SELL":
-            grouped[trend].append(f"🔴 {symbol} | {price}{stop_text}")
+    if trend == "UP" and signal:
+        messages_up.append(f"🟢 {symbol} | {price} | {last_date}{stop_text}")
+    elif trend == "DOWN" and signal:
+        messages_down.append(f"🔴 {symbol} | {price} | {last_date}{stop_text}")
+    elif trend == "SIDEWAYS" and signal:
+        dist_text = ""
+        if dist_support is not None and dist_support <= 5:
+            dist_text = f" | {round(dist_support,2)}%"
+        elif dist_resist is not None and dist_resist <= 5:
+            dist_text = f" | {round(dist_resist,2)}%"
+        messages_side.append(f"{'🟢' if signal=='BUY' else '🔴'} {symbol} | {price} | {last_date}{dist_text}")
 
     state[symbol] = {"trend": trend, "date": today}
 
 # =====================
-# BUILD MESSAGE
+# SEND TELEGRAM
 # =====================
-sections = []
+messages = []
+if messages_up:
+    messages.append("↗️ صاعد (شراء/بيع):")
+    messages.extend([f"- {m}" for m in messages_up])
+if messages_side:
+    messages.append("🔛 عرضي (قمم/قيعان):")
+    messages.extend([f"- {m}" for m in messages_side])
+if messages_down:
+    messages.append("🔻 هابط:")
+    messages.extend([f"- {m}" for m in messages_down])
 
-if grouped["CHANGES"]:
-    sections.append("🚧 Trend Changes\n" + "\n".join(grouped["CHANGES"]))
-
-for trend in ["UP", "SIDEWAYS", "DOWN"]:
-    if grouped[trend]:
-        sections.append(f"📊 {trend}\n" + "\n".join(grouped[trend]))
-
-if sections:
-    text = f"🚦 EGX Alerts – {today}\n\n" + "\n\n".join(sections)
+if messages:
+    text = f"🚦 EGX Alerts – {today}\n\n" + "\n".join(messages)
+    send_telegram(text)
 else:
-    text = f"ℹ️ لا توجد إشارات جديدة\n\n📅 {today}"
-
-send_telegram(text)
+    text = f"MA S ℹ️ لا توجد إشارات جديدة\n\nlast candle date:\n📅 {today}"
+    send_telegram(text)
 
 # =====================
-# SAVE STATE + PUSH (GitHub)
+# SAVE STATE
 # =====================
 with open(STATE_FILE, "w") as f:
     json.dump(state, f, indent=4)
-
-if os.getenv("GITHUB_ACTIONS") == "true":
-    os.system("git config user.name 'github-actions'")
-    os.system("git config user.email 'github-actions@github.com'")
-    os.system("git add signals_state.json")
-    os.system("git commit -m 'Update signals state' || echo 'No changes'")
-    os.system("git push")
