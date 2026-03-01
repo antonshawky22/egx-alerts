@@ -64,9 +64,8 @@ def get_data(symbol):
         return None
 
 def calculate_indicators(df):
-    df["EMA8"] = df["Close"].ewm(span=8).mean()
-    df["EMA15"] = df["Close"].ewm(span=15).mean()
-
+    df["EMA8"] = df["Close"].ewm(span=8, adjust=False).mean()
+    df["EMA15"] = df["Close"].ewm(span=15, adjust=False).mean()
     delta = df["Close"].diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
@@ -90,7 +89,6 @@ def find_swings(close):
 def classify_trend(highs, lows):
     if len(highs) < 2 or len(lows) < 2:
         return "SIDEWAYS"
-
     last_high, prev_high = highs[-1][1], highs[-2][1]
     last_low, prev_low = lows[-1][1], lows[-2][1]
 
@@ -101,7 +99,6 @@ def classify_trend(highs, lows):
 
     high_diff = abs(last_high - prev_high) / prev_high
     low_diff = abs(last_low - prev_low) / prev_low
-
     if high_diff <= SIDEWAYS_THRESHOLD and low_diff <= SIDEWAYS_THRESHOLD:
         return "SIDEWAYS"
 
@@ -122,22 +119,22 @@ def detect_signal(df, trend, highs, lows):
         elif last["RSI"] >= 80:
             signal = "SELL"
         if lows:
-            stop = min([l[1] for l in lows[-DEPTH:]])
+            stop = float(min([l[1] for l in lows[-DEPTH:]]))
 
     elif trend == "SIDEWAYS":
-        support = df["Close"].min()
-        resistance = df["Close"].max()
+        support = float(df["Close"].min())
+        resistance = float(df["Close"].max())
         dist_support = (close - support) / support
         dist_resist = (resistance - close) / resistance
 
-        if dist_support <= RANGE_ENTRY_PERCENT:
+        if float(dist_support) <= RANGE_ENTRY_PERCENT:
             signal = "BUY"
             stop = support
-        elif dist_resist <= RANGE_ENTRY_PERCENT:
+        elif float(dist_resist) <= RANGE_ENTRY_PERCENT:
             signal = "SELL"
 
     elif trend == "DOWN":
-        signal = None
+        signal = None  # يظهر مرة واحدة فقط مع 🚧
 
     return signal, stop
 
@@ -157,7 +154,9 @@ for symbol in SYMBOLS:
     highs, lows = find_swings(df["Close"].values)
     trend = classify_trend(highs, lows)
 
-    previous_trend = state.get(symbol, {}).get("trend", "")
+    prev_state = state.get(symbol, {})
+    previous_trend = prev_state.get("trend", "")
+    previous_signal = prev_state.get("signal", "")
 
     # 🚧 أي تغيير اتجاه
     if previous_trend and previous_trend != trend:
@@ -166,7 +165,8 @@ for symbol in SYMBOLS:
 
     signal, stop = detect_signal(df, trend, highs, lows)
 
-    if signal:
+    # منع تكرار الإشارة لنفس السهم
+    if signal and signal != previous_signal:
         price = round(df["Close"].iloc[-1], 2)
         stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop else ""
         if signal == "BUY":
@@ -174,7 +174,8 @@ for symbol in SYMBOLS:
         elif signal == "SELL":
             messages.append(f"🔴 {symbol} | {trend} | {price}{stop_text}")
 
-    state[symbol] = {"trend": trend, "date": today}
+    # تحديث الحالة
+    state[symbol] = {"trend": trend, "signal": signal, "date": today}
 
 # =====================
 # SEND TELEGRAM
@@ -182,6 +183,9 @@ for symbol in SYMBOLS:
 if messages:
     text = f"🚦 EGX Alerts – {today}\n\n" + "\n".join(messages)
     send_telegram(text)
+else:
+    print("ℹ️ لا توجد إشارات جديدة")
+    print(f"last candle date:\n📅 {today}")
 
 # =====================
 # SAVE STATE
