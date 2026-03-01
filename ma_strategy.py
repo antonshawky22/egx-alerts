@@ -125,17 +125,20 @@ def detect_signal(df, trend, highs, lows):
             stop = float(np.min([l[1] for l in lows[-DEPTH:]]))
 
     elif trend == "SIDEWAYS":
-        support = float(df["Close"].min())
-        resistance = float(df["Close"].max())
-        dist_support = (close - support) / support
-        dist_resist = (resistance - close) / resistance
+        # استخدام Series بشكل صحيح للحصول على قيمة مفردة
+        close_series = df["Close"]
+        if isinstance(close_series, pd.Series) and not close_series.empty:
+            support = float(close_series.min())
+            resistance = float(close_series.max())
+            dist_support = (close - support) / support
+            dist_resist = (resistance - close) / resistance
 
-        if dist_support <= RANGE_ENTRY_PERCENT:
-            signal = "BUY"
-            stop = support
-        elif dist_resist <= RANGE_ENTRY_PERCENT:
-            signal = "SELL"
-            stop = support  # للعرضي نستخدم الدعم كستوب
+            if dist_support <= RANGE_ENTRY_PERCENT:
+                signal = "BUY"
+                stop = support
+            elif dist_resist <= RANGE_ENTRY_PERCENT:
+                signal = "SELL"
+                stop = support  # للعرضي نستخدم الدعم كستوب
 
     elif trend == "DOWN":
         signal = None
