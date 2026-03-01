@@ -122,14 +122,11 @@ def detect_signal(df, trend, highs, lows):
         elif last["RSI"] >= 80:
             signal = "SELL"
         if lows:
-            stop = float(min([l[1] for l in lows[-DEPTH:]]))
+            stop = float(np.min([l[1] for l in lows[-DEPTH:]]))
 
     elif trend == "SIDEWAYS":
-        support = float(df["Close"].min(skipna=True))
-        resistance = float(df["Close"].max(skipna=True))
-        if pd.isna(support) or pd.isna(resistance):
-            return None, None
-
+        support = float(df["Close"].min())
+        resistance = float(df["Close"].max())
         dist_support = (close - support) / support
         dist_resist = (resistance - close) / resistance
 
