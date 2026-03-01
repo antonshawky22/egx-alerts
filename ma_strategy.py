@@ -20,7 +20,7 @@ SYMBOLS = [
     "PHDC.CA","MCQE.CA","SKPC.CA","EGAL.CA"
 ]
 
-LOOKBACK = 50      # عدد الشموع السابقة
+LOOKBACK = 15      # عدد الشموع السابقة
 DEPTH = 8          # عمق الحساب
 SIDEWAYS_THRESHOLD = 0.04
 RANGE_ENTRY_PERCENT = 0.05
