@@ -1,4 +1,4 @@
-print("🚦 EGX Alerts – Full Strategy (Trend Change Enabled)")
+print("🚦 EGX Alerts – Full Strategy (Stable Version)")
 
 import yfinance as yf
 import pandas as pd
@@ -76,15 +76,16 @@ def calculate_indicators(df):
     df["RSI"] = 100 - (100 / (1 + rs))
     return df
 
-def find_swings(close):
+def find_swings(close_array):
     highs = []
     lows = []
-    for i in range(DEPTH, len(close)-DEPTH):
-        window = close[i-DEPTH:i+DEPTH+1]
-        if close[i] == max(window):
-            highs.append((i, float(close[i])))
-        if close[i] == min(window):
-            lows.append((i, float(close[i])))
+    n = len(close_array)
+    for i in range(DEPTH, n - DEPTH):
+        window = close_array[i-DEPTH:i+DEPTH+1]
+        if close_array[i] == np.max(window):
+            highs.append((i, float(close_array[i].item())))
+        if close_array[i] == np.min(window):
+            lows.append((i, float(close_array[i].item())))
     return highs, lows
 
 def classify_trend(highs, lows):
