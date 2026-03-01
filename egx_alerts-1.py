@@ -24,7 +24,7 @@ LOOKBACK = 15
 DEPTH = 8
 SIDEWAYS_THRESHOLD = 0.04
 RANGE_ENTRY_PERCENT = 0.05
-STATE_FILE = "signals_state.json"
+STATE_FILE = "last_signals.json"
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
