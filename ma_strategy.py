@@ -66,6 +66,7 @@ def get_data(symbol):
 def calculate_indicators(df):
     df["EMA8"] = df["Close"].ewm(span=8).mean()
     df["EMA15"] = df["Close"].ewm(span=15).mean()
+
     delta = df["Close"].diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
@@ -89,6 +90,7 @@ def find_swings(close):
 def classify_trend(highs, lows):
     if len(highs) < 2 or len(lows) < 2:
         return "SIDEWAYS"
+
     last_high, prev_high = highs[-1][1], highs[-2][1]
     last_low, prev_low = lows[-1][1], lows[-2][1]
 
@@ -99,6 +101,7 @@ def classify_trend(highs, lows):
 
     high_diff = abs(last_high - prev_high) / prev_high
     low_diff = abs(last_low - prev_low) / prev_low
+
     if high_diff <= SIDEWAYS_THRESHOLD and low_diff <= SIDEWAYS_THRESHOLD:
         return "SIDEWAYS"
 
@@ -119,27 +122,26 @@ def detect_signal(df, trend, highs, lows):
         elif last["RSI"] >= 80:
             signal = "SELL"
         if lows:
-            stop = min([l[1] for l in lows[-DEPTH:]])
+            stop = float(min([l[1] for l in lows[-DEPTH:]]))
 
     elif trend == "SIDEWAYS":
-        support = float(df["Close"].min())
-        resistance = float(df["Close"].max())
-        if np.isnan(support) or np.isnan(resistance):
+        support = float(df["Close"].min(skipna=True))
+        resistance = float(df["Close"].max(skipna=True))
+        if pd.isna(support) or pd.isna(resistance):
             return None, None
+
         dist_support = (close - support) / support
         dist_resist = (resistance - close) / resistance
+
         if dist_support <= RANGE_ENTRY_PERCENT:
             signal = "BUY"
             stop = support
         elif dist_resist <= RANGE_ENTRY_PERCENT:
             signal = "SELL"
-            stop = resistance
+            stop = support  # للعرضي نستخدم الدعم كستوب
 
     elif trend == "DOWN":
-        # يظهر مرة واحدة مع العلامة 🚧، بعد كده لا يكرر حتى يتغير الاتجاه
         signal = None
-        if lows:
-            stop = max([l[1] for l in lows[-DEPTH:]])
 
     return signal, stop
 
@@ -158,6 +160,7 @@ for symbol in SYMBOLS:
     df = calculate_indicators(df)
     highs, lows = find_swings(df["Close"].values)
     trend = classify_trend(highs, lows)
+
     previous_trend = state.get(symbol, {}).get("trend", "")
 
     # 🚧 أي تغيير اتجاه
@@ -165,8 +168,8 @@ for symbol in SYMBOLS:
         price = round(df["Close"].iloc[-1], 2)
         messages.append(f"🚧 {symbol} | Trend: {previous_trend} → {trend} | {price}")
 
-    # الإشارة الفعلية مع ستوب
     signal, stop = detect_signal(df, trend, highs, lows)
+
     if signal:
         price = round(df["Close"].iloc[-1], 2)
         stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop else ""
@@ -175,7 +178,7 @@ for symbol in SYMBOLS:
         elif signal == "SELL":
             messages.append(f"🔴 {symbol} | {trend} | {price}{stop_text}")
 
-    # حفظ الحالة لتجنب التكرار
+    # حفظ الاتجاه والتاريخ لمنع التكرار
     state[symbol] = {"trend": trend, "date": today}
 
 # =====================
