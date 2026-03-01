@@ -105,17 +105,19 @@ def classify_trend(highs, lows):
 def detect_signal(df, trend, highs, lows):
     last = df.iloc[-1]
     prev = df.iloc[-2]
-    close = float(last["Close"])
+
+    close = float(last["Close"].iloc[0] if hasattr(last["Close"], 'iloc') else last["Close"].item() if hasattr(last["Close"], 'item') else last["Close"])
+
     signal = None
     stop = None
     dist_support = None
     dist_resist = None
 
-    prev_ema8 = float(prev["EMA8"])
-    prev_ema15 = float(prev["EMA15"])
-    last_ema8 = float(last["EMA8"])
-    last_ema15 = float(last["EMA15"])
-    last_rsi = float(last["RSI"])
+    prev_ema8 = float(prev["EMA8"].iloc[0] if hasattr(prev["EMA8"], 'iloc') else prev["EMA8"].item() if hasattr(prev["EMA8"], 'item') else prev["EMA8"])
+    prev_ema15 = float(prev["EMA15"].iloc[0] if hasattr(prev["EMA15"], 'iloc') else prev["EMA15"].item() if hasattr(prev["EMA15"], 'item') else prev["EMA15"])
+    last_ema8 = float(last["EMA8"].iloc[0] if hasattr(last["EMA8"], 'iloc') else last["EMA8"].item() if hasattr(last["EMA8"], 'item') else last["EMA8"])
+    last_ema15 = float(last["EMA15"].iloc[0] if hasattr(last["EMA15"], 'iloc') else last["EMA15"].item() if hasattr(last["EMA15"], 'item') else last["EMA15"])
+    last_rsi = float(last["RSI"].iloc[0] if hasattr(last["RSI"], 'iloc') else last["RSI"].item() if hasattr(last["RSI"], 'item') else last["RSI"])
 
     if trend == "UP":
         if prev_ema8 < prev_ema15 and last_ema8 > last_ema15:
@@ -143,74 +145,3 @@ def detect_signal(df, trend, highs, lows):
         signal = None
 
     return signal, stop, dist_support, dist_resist
-
-# =====================
-# MAIN LOOP
-# =====================
-messages_up = []
-messages_side = []
-messages_down = []
-today = str(datetime.today().date())
-
-for symbol in SYMBOLS:
-    df = get_data(symbol)
-    if df is None:
-        continue
-    df = calculate_indicators(df)
-    highs, lows = find_swings(df["Close"].values)
-    trend = classify_trend(highs, lows)
-    last_date = df.index[-1].date()
-
-    previous_trend = state.get(symbol, {}).get("trend", "")
-    last_signal = state.get(symbol, {}).get("signal", "")
-
-    signal, stop, dist_support, dist_resist = detect_signal(df, trend, highs, lows)
-    price = round(float(df["Close"].iloc[-1]), 2)
-    stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop is not None else ""
-
-    # 🚧 أي تغيير اتجاه
-    if previous_trend and previous_trend != trend:
-        messages_up.append(f"🚧 {symbol} | Trend: {previous_trend} → {trend} | {price} | {last_date}")
-
-    # إضافة الرسائل فقط إذا تغيرت الإشارة أو الاتجاه
-    if signal != last_signal or previous_trend != trend:
-        if trend == "UP" and signal:
-            messages_up.append(f"🟢 {symbol} | {price} | {last_date}{stop_text}")
-        elif trend == "DOWN" and signal:
-            messages_down.append(f"🔴 {symbol} | {price} | {last_date}{stop_text}")
-        elif trend == "SIDEWAYS" and signal:
-            dist_text = ""
-            if dist_support is not None and dist_support <= 5:
-                dist_text = f" | {round(dist_support,2)}%"
-            elif dist_resist is not None and dist_resist <= 5:
-                dist_text = f" | {round(dist_resist,2)}%"
-            messages_side.append(f"{'🟢' if signal=='BUY' else '🔴'} {symbol} | {price} | {last_date}{dist_text}")
-
-    state[symbol] = {"trend": trend, "date": today, "signal": signal}
-
-# =====================
-# SEND TELEGRAM
-# =====================
-messages = []
-if messages_up:
-    messages.append("↗️ صاعد (شراء/بيع):")
-    messages.extend([f"- {m}" for m in messages_up])
-if messages_side:
-    messages.append("🔛 عرضي (قمم/قيعان):")
-    messages.extend([f"- {m}" for m in messages_side])
-if messages_down:
-    messages.append("🔻 هابط:")
-    messages.extend([f"- {m}" for m in messages_down])
-
-if messages:
-    text = f"🚦 EGX Alerts – {today}\n\n" + "\n".join(messages)
-    send_telegram(text)
-else:
-    text = f" ℹ️ لا توجد إشارات جديدة\n\nlast candle date:\n📅 {today}"
-    send_telegram(text)
-
-# =====================
-# SAVE STATE
-# =====================
-with open(STATE_FILE, "w") as f:
-    json.dump(state, f, indent=4)
