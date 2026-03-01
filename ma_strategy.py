@@ -30,7 +30,7 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 # =====================
-# TELEGRAM
+# TELEGRAM FUNCTION
 # =====================
 def send_telegram(text):
     if not TOKEN or not CHAT_ID:
@@ -43,7 +43,7 @@ def send_telegram(text):
         print("Telegram send failed:", e)
 
 # =====================
-# LOAD STATE
+# LOAD PREVIOUS STATE
 # =====================
 if os.path.exists(STATE_FILE):
     with open(STATE_FILE, "r") as f:
@@ -69,9 +69,9 @@ def calculate_indicators(df):
     delta = df["Close"].diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
-    avg_gain = gain.rolling(14).mean()
-    avg_loss = loss.rolling(14).mean()
-    rs = avg_gain / avg_loss
+    avg_gain = gain.rolling(14, min_periods=1).mean()
+    avg_loss = loss.rolling(14, min_periods=1).mean()
+    rs = avg_gain / avg_loss.replace(0, np.nan)
     df["RSI"] = 100 - (100 / (1 + rs))
     return df
 
@@ -80,9 +80,9 @@ def find_swings(close):
     lows = []
     for i in range(DEPTH, len(close)-DEPTH):
         window = close[i-DEPTH:i+DEPTH+1]
-        if close[i] == window.max():
+        if close[i] == max(window):
             highs.append((i, close[i]))
-        if close[i] == window.min():
+        if close[i] == min(window):
             lows.append((i, close[i]))
     return highs, lows
 
@@ -99,6 +99,7 @@ def classify_trend(highs, lows):
 
     high_diff = abs(last_high - prev_high) / prev_high
     low_diff = abs(last_low - prev_low) / prev_low
+
     if high_diff <= SIDEWAYS_THRESHOLD and low_diff <= SIDEWAYS_THRESHOLD:
         return "SIDEWAYS"
 
@@ -122,19 +123,24 @@ def detect_signal(df, trend, highs, lows):
             stop = float(min([l[1] for l in lows[-DEPTH:]]))
 
     elif trend == "SIDEWAYS":
-        support = float(df["Close"].min())
-        resistance = float(df["Close"].max())
+        support = df["Close"].min(skipna=True)
+        resistance = df["Close"].max(skipna=True)
+        if pd.isna(support) or pd.isna(resistance):
+            return None, None
         dist_support = (close - support) / support
         dist_resist = (resistance - close) / resistance
-
-        if float(dist_support) <= RANGE_ENTRY_PERCENT:
+        if dist_support <= RANGE_ENTRY_PERCENT:
             signal = "BUY"
-            stop = support
-        elif float(dist_resist) <= RANGE_ENTRY_PERCENT:
+            stop = float(support)
+        elif dist_resist <= RANGE_ENTRY_PERCENT:
             signal = "SELL"
+            stop = float(resistance)
 
     elif trend == "DOWN":
-        signal = None  # يظهر مرة واحدة فقط مع 🚧
+        # يظهر مرة واحدة فقط عند أول اكتشاف
+        signal = None
+        if lows:
+            stop = float(min([l[1] for l in lows[-DEPTH:]]))
 
     return signal, stop
 
@@ -153,20 +159,17 @@ for symbol in SYMBOLS:
     df = calculate_indicators(df)
     highs, lows = find_swings(df["Close"].values)
     trend = classify_trend(highs, lows)
-
-    prev_state = state.get(symbol, {})
-    previous_trend = prev_state.get("trend", "")
-    previous_signal = prev_state.get("signal", "")
+    previous_trend = state.get(symbol, {}).get("trend", "")
 
     # 🚧 أي تغيير اتجاه
     if previous_trend and previous_trend != trend:
         price = round(df["Close"].iloc[-1], 2)
         messages.append(f"🚧 {symbol} | Trend: {previous_trend} → {trend} | {price}")
 
+    # منع تكرار الإشارة لنفس الاتجاه
+    last_signal = state.get(symbol, {}).get("signal", "")
     signal, stop = detect_signal(df, trend, highs, lows)
-
-    # منع تكرار الإشارة لنفس السهم
-    if signal and signal != previous_signal:
+    if signal and signal != last_signal:
         price = round(df["Close"].iloc[-1], 2)
         stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop else ""
         if signal == "BUY":
@@ -174,8 +177,11 @@ for symbol in SYMBOLS:
         elif signal == "SELL":
             messages.append(f"🔴 {symbol} | {trend} | {price}{stop_text}")
 
-    # تحديث الحالة
-    state[symbol] = {"trend": trend, "signal": signal, "date": today}
+        # تحديث حالة الإشارة
+        state[symbol] = {"trend": trend, "signal": signal, "date": today}
+    else:
+        # تحديث الاتجاه فقط إذا لم يوجد إشارة جديدة
+        state[symbol] = {"trend": trend, "signal": last_signal, "date": today}
 
 # =====================
 # SEND TELEGRAM
@@ -184,8 +190,8 @@ if messages:
     text = f"🚦 EGX Alerts – {today}\n\n" + "\n".join(messages)
     send_telegram(text)
 else:
-    print("ℹ️ لا توجد إشارات جديدة")
-    print(f"last candle date:\n📅 {today}")
+    text = f"No new signal – last candle date\n📅 {today}"
+    send_telegram(text)
 
 # =====================
 # SAVE STATE
