@@ -108,19 +108,27 @@ def classify_trend(highs, lows):
 
     return "SIDEWAYS"
 
+# =====================
+# SAFE FLOAT HELPER
+# =====================
+def to_float(value):
+    if isinstance(value, pd.Series):
+        return float(value.iloc[0])
+    return float(value)
+
 def detect_signal(df, trend, highs, lows):
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
-    close = float(last["Close"])
+    close = to_float(last["Close"])
     signal = None
     stop = None
 
-    prev_ema8 = float(prev["EMA8"])
-    prev_ema15 = float(prev["EMA15"])
-    last_ema8 = float(last["EMA8"])
-    last_ema15 = float(last["EMA15"])
-    last_rsi = float(last["RSI"])
+    prev_ema8 = to_float(prev["EMA8"])
+    prev_ema15 = to_float(prev["EMA15"])
+    last_ema8 = to_float(last["EMA8"])
+    last_ema15 = to_float(last["EMA15"])
+    last_rsi = to_float(last["RSI"])
 
     if trend == "UP":
         if prev_ema8 < prev_ema15 and last_ema8 > last_ema15:
@@ -133,8 +141,8 @@ def detect_signal(df, trend, highs, lows):
             stop = min([l[1] for l in lows[-DEPTH:]])
 
     elif trend == "SIDEWAYS":
-        support = float(df["Close"].min())
-        resistance = float(df["Close"].max())
+        support = to_float(df["Close"].min())
+        resistance = to_float(df["Close"].max())
         dist_support = (close - support) / support
         dist_resist = (resistance - close) / resistance
 
@@ -174,13 +182,13 @@ for symbol in SYMBOLS:
     previous_trend = state.get(symbol, {}).get("trend", "")
 
     if previous_trend and previous_trend != trend:
-        price = round(float(df["Close"].iloc[-1]), 2)
+        price = round(to_float(df["Close"].iloc[-1]), 2)
         grouped["CHANGES"].append(f"{symbol} | {previous_trend} → {trend} | {price}")
 
     signal, stop = detect_signal(df, trend, highs, lows)
 
     if signal:
-        price = round(float(df["Close"].iloc[-1]), 2)
+        price = round(to_float(df["Close"].iloc[-1]), 2)
         stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop else ""
 
         if signal == "BUY":
