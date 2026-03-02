@@ -1,1 +1,172 @@
-{}
+{
+    "OFH.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": "\ud83d\udfe2 OFH.CA | 0.51 | 2026-03-01 | 0.0%"
+    },
+    "OLFI.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": "\ud83d\udfe2 OLFI.CA | 21.77 | 2026-03-01 | 0.0%"
+    },
+    "EMFD.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": "\ud83d\udfe2 EMFD.CA | 8.75 | 2026-03-01 | 0.0%"
+    },
+    "ETEL.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "EAST.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "EFIH.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "ABUK.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": "\ud83d\udd34 ABUK.CA | 68.8 | 2026-03-01 | 4.27%"
+    },
+    "OIH.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "SWDY.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "ISPH.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "ATQA.CA": {
+        "trend": "DOWN",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "MTIE.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "ELEC.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": "\ud83d\udfe2 ELEC.CA | 2.03 | 2026-03-01 | 0.0%"
+    },
+    "HRHO.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "ORWE.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": "\ud83d\udfe2 ORWE.CA | 21.89 | 2026-03-01 | 1.72%"
+    },
+    "JUFO.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "DSCW.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": "\ud83d\udfe2 DSCW.CA | 1.58 | 2026-03-01 | 0.0%"
+    },
+    "SUGR.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": "\ud83d\udfe2 SUGR.CA | 45.38 | 2026-03-01 | 0.38%"
+    },
+    "ELSH.CA": {
+        "trend": "DOWN",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "RMDA.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": "\ud83d\udd34 RMDA.CA | 4.43 | 2026-03-01 | 4.32%"
+    },
+    "RAYA.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": "\ud83d\udd34 RAYA.CA | 5.7 | 2026-03-01 | 0.0%"
+    },
+    "EEII.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": "\ud83d\udfe2 EEII.CA | 1.69 | 2026-03-01 | 0.0%"
+    },
+    "MPCO.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": "\ud83d\udfe2 MPCO.CA | 1.45 | 2026-03-01 | 1.4%"
+    },
+    "GBCO.CA": {
+        "trend": "UP",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "TMGH.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "ORHD.CA": {
+        "trend": "DOWN",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "AMOC.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "FWRY.CA": {
+        "trend": "UP",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "COMI.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "ADIB.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "PHDC.CA": {
+        "trend": "UP",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "MCQE.CA": {
+        "trend": "UP",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "SKPC.CA": {
+        "trend": "DOWN",
+        "date": "2026-03-02",
+        "signal_text": ""
+    },
+    "EGAL.CA": {
+        "trend": "SIDEWAYS",
+        "date": "2026-03-02",
+        "signal_text": ""
+    }
+}
