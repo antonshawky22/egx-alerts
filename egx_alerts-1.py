@@ -107,23 +107,37 @@ def find_swings(close_array):
     return highs, lows
 
 
-def classify_trend(highs, lows):
-
+# =====================
+# تعديل تصنيف الاتجاه مع شرط اختراق القمم/القيعان
+# =====================
+def classify_trend(highs, lows, close_array=None):
     if len(highs) < 2 or len(lows) < 2:
         return "SIDEWAYS"
 
     last_high, prev_high = highs[-1][1], highs[-2][1]
     last_low, prev_low = lows[-1][1], lows[-2][1]
 
+    # صاعد طبيعي
     if last_high > prev_high and last_low > prev_low:
         return "UP"
 
+    # هابط طبيعي
     if last_high < prev_high and last_low < prev_low:
         return "DOWN"
 
+    # اختراق القمم السابقة بقوة
+    if close_array is not None:
+        max_prev_high = max([h[1] for h in highs[:-1]])
+        if close_array[-1] > max_prev_high * 1.01:  # اخترق القمة السابقة بنسبة +1%
+            return "UP"
+
+        min_prev_low = min([l[1] for l in lows[:-1]])
+        if close_array[-1] < min_prev_low * 0.99:  # كسر القاع السابق بنسبة -1%
+            return "DOWN"
+
+    # عرضي
     high_diff = abs(last_high - prev_high) / prev_high
     low_diff = abs(last_low - prev_low) / prev_low
-
     if high_diff <= SIDEWAYS_THRESHOLD and low_diff <= SIDEWAYS_THRESHOLD:
         return "SIDEWAYS"
 
@@ -149,30 +163,22 @@ def detect_signal(df, trend, highs, lows):
     last_rsi = float(last["RSI"])
 
     if trend == "UP":
-
         if prev_ema8 < prev_ema15 and last_ema8 > last_ema15:
             signal = "BUY"
-
         elif prev_ema8 > prev_ema15 and last_ema8 < last_ema15:
             signal = "SELL"
-
         elif last_rsi >= 80:
             signal = "SELL"
-
         if lows:
             stop = min([l[1] for l in lows[-DEPTH:]])
 
     elif trend == "SIDEWAYS":
-
         support = float(df["Close"].min())
         resistance = float(df["Close"].max())
-
         dist_support = (close - support) / support * 100
         dist_resist = (resistance - close) / resistance * 100
-
         if dist_support <= RANGE_ENTRY_PERCENT * 100:
             signal = "BUY"
-
         elif dist_resist <= RANGE_ENTRY_PERCENT * 100:
             signal = "SELL"
 
@@ -180,6 +186,7 @@ def detect_signal(df, trend, highs, lows):
         signal = None
 
     return signal, stop, dist_support, dist_resist
+
 
 # =====================
 # MAIN LOOP
@@ -203,19 +210,18 @@ for symbol in SYMBOLS:
 
     highs, lows = find_swings(df["Close"].values)
 
-    trend = classify_trend(highs, lows)
+    trend = classify_trend(highs, lows, df["Close"].values)
 
     last_date = df.index[-1].date()
     price = round(float(df["Close"].iloc[-1]), 2)
 
     signal, stop, dist_support, dist_resist = detect_signal(df, trend, highs, lows)
 
-    # قراءة آخر حالة محفوظة
     last_state = state.get(symbol, {})
     last_trend = last_state.get("trend")
     last_signal_text = last_state.get("signal_text", "")
 
-    # ✨ تحقق من التغير في الاتجاه
+    # 🚧 تنبيه تغيير الاتجاه
     if last_trend and last_trend != trend:
         messages_alert.append(f"🚧 {symbol} | {price} | {trend}")
 
@@ -227,7 +233,6 @@ for symbol in SYMBOLS:
     elif dist_resist is not None and dist_resist <= 5:
         dist_text = f" | {round(dist_resist,2)}%"
 
-    # تكوين النص حسب الاتجاه
     if trend == "UP" and signal:
         new_signal_text = f"🟢 {symbol} | {price} | {last_date}{stop_text}"
     elif trend == "DOWN" and signal:
@@ -237,7 +242,6 @@ for symbol in SYMBOLS:
     else:
         new_signal_text = ""
 
-    # إذا تغيرت الإشارة فقط
     if new_signal_text and new_signal_text != last_signal_text:
         if trend == "UP":
             messages_up.append(new_signal_text)
