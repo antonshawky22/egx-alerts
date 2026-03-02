@@ -20,8 +20,8 @@ SYMBOLS = [
     "PHDC.CA","MCQE.CA","SKPC.CA","EGAL.CA"
 ]
 
-LOOKBACK = 60
-DEPTH = 5
+LOOKBACK = 10
+DEPTH = 3
 SIDEWAYS_THRESHOLD = 0.04
 RANGE_ENTRY_PERCENT = 0.05
 STATE_FILE = "last_signals.json"
@@ -61,7 +61,6 @@ def get_data(symbol):
         if df.empty:
             return None
 
-        # 🔥 إصلاح MultiIndex نهائي
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
 
@@ -182,13 +181,13 @@ def detect_signal(df, trend, highs, lows):
 
     return signal, stop, dist_support, dist_resist
 
-
 # =====================
 # MAIN LOOP
 # =====================
 messages_up = []
 messages_side = []
 messages_down = []
+messages_alert = []
 
 today = str(datetime.today().date())
 
@@ -197,7 +196,7 @@ for symbol in SYMBOLS:
     df = get_data(symbol)
 
     if df is None:
-        messages_up.append(f"⚠️ {symbol} data failure")
+        messages_alert.append(f"⚠️ {symbol} data failure")
         continue
 
     df = calculate_indicators(df)
@@ -207,15 +206,20 @@ for symbol in SYMBOLS:
     trend = classify_trend(highs, lows)
 
     last_date = df.index[-1].date()
+    price = round(float(df["Close"].iloc[-1]), 2)
 
     signal, stop, dist_support, dist_resist = detect_signal(df, trend, highs, lows)
 
-    price = round(float(df["Close"].iloc[-1]), 2)
+    # قراءة آخر حالة محفوظة
+    last_state = state.get(symbol, {})
+    last_trend = last_state.get("trend")
+    last_signal_text = last_state.get("signal_text", "")
 
-    last_signal_state = state.get(symbol, {})
-    last_signal_text = last_signal_state.get("signal_text", "")
+    # ✨ تحقق من التغير في الاتجاه
+    if last_trend and last_trend != trend:
+        messages_alert.append(f"🚧 {symbol} | {price} | {trend}")
 
-    stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop else ""
+    stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop and trend == "UP" and price < stop else ""
 
     dist_text = ""
     if dist_support is not None and dist_support <= 5:
@@ -223,34 +227,27 @@ for symbol in SYMBOLS:
     elif dist_resist is not None and dist_resist <= 5:
         dist_text = f" | {round(dist_resist,2)}%"
 
+    # تكوين النص حسب الاتجاه
     if trend == "UP" and signal:
         new_signal_text = f"🟢 {symbol} | {price} | {last_date}{stop_text}"
-
     elif trend == "DOWN" and signal:
         new_signal_text = f"🔴 {symbol} | {price} | {last_date}{stop_text}"
-
     elif trend == "SIDEWAYS" and signal:
         new_signal_text = f"{'🟢' if signal=='BUY' else '🔴'} {symbol} | {price} | {last_date}{dist_text}"
-
     else:
         new_signal_text = ""
 
+    # إذا تغيرت الإشارة فقط
     if new_signal_text and new_signal_text != last_signal_text:
-
         if trend == "UP":
             messages_up.append(new_signal_text)
-
         elif trend == "DOWN":
             messages_down.append(new_signal_text)
-
         elif trend == "SIDEWAYS":
             messages_side.append(new_signal_text)
-
         state[symbol] = {"trend": trend, "date": today, "signal_text": new_signal_text}
-
     else:
         state[symbol] = {"trend": trend, "date": today, "signal_text": last_signal_text}
-
 
 # =====================
 # SEND TELEGRAM
@@ -269,13 +266,16 @@ if messages_down:
     messages.append("🔻 هابط:")
     messages.extend([f"- {m}" for m in messages_down])
 
-if messages:
-    text = f"🚦 EGX Alerts – {today}\n\n" + "\n".join(messages)
-else:
+if messages_alert:
+    messages.append("⚠️ تنبيهات:")
+    messages.extend([f"- {m}" for m in messages_alert])
+
+if not messages:
     text = f"Egx-1 ℹ️ No new signal\n\nlast candle date:\n📅 {last_date}"
+else:
+    text = f"🚦 EGX Alerts – {today}\n\n" + "\n".join(messages)
 
 send_telegram(text)
-
 
 # =====================
 # SAVE STATE
