@@ -2,17 +2,17 @@
     "OFH.CA": {
         "trend": "SIDEWAYS",
         "date": "2026-03-02",
-        "signal_text": "\ud83d\udfe2 OFH.CA | 0.53 | 2026-02-26 | 0.76%"
+        "signal_text": "\ud83d\udfe2 OFH.CA | 0.51 | 2026-03-01 | 0.0%"
     },
     "OLFI.CA": {
         "trend": "SIDEWAYS",
         "date": "2026-03-02",
-        "signal_text": "\ud83d\udfe2 OLFI.CA | 21.87 | 2026-02-26 | 0.18%"
+        "signal_text": "\ud83d\udfe2 OLFI.CA | 21.77 | 2026-03-01 | 0.0%"
     },
     "EMFD.CA": {
         "trend": "SIDEWAYS",
         "date": "2026-03-02",
-        "signal_text": "\ud83d\udfe2 EMFD.CA | 8.95 | 2026-02-26 | 0.0%"
+        "signal_text": "\ud83d\udfe2 EMFD.CA | 8.75 | 2026-03-01 | 0.0%"
     },
     "ETEL.CA": {
         "trend": "SIDEWAYS",
@@ -32,7 +32,7 @@
     "ABUK.CA": {
         "trend": "SIDEWAYS",
         "date": "2026-03-02",
-        "signal_text": "\ud83d\udfe2 ABUK.CA | 69.7 | 2026-02-26 | 4.03%"
+        "signal_text": "\ud83d\udd34 ABUK.CA | 68.8 | 2026-03-01 | 4.27%"
     },
     "OIH.CA": {
         "trend": "SIDEWAYS",
@@ -50,7 +50,7 @@
         "signal_text": "\ud83d\udfe2 ISPH.CA | 11.79 | 2026-02-26 | 3.69%"
     },
     "ATQA.CA": {
-        "trend": "SIDEWAYS",
+        "trend": "DOWN",
         "date": "2026-03-02",
         "signal_text": "\ud83d\udfe2 ATQA.CA | 8.6 | 2026-02-26 | 0.0%"
     },
@@ -62,7 +62,7 @@
     "ELEC.CA": {
         "trend": "SIDEWAYS",
         "date": "2026-03-02",
-        "signal_text": "\ud83d\udfe2 ELEC.CA | 2.08 | 2026-02-26 | 1.46%"
+        "signal_text": "\ud83d\udfe2 ELEC.CA | 2.03 | 2026-03-01 | 0.0%"
     },
     "HRHO.CA": {
         "trend": "SIDEWAYS",
@@ -72,7 +72,7 @@
     "ORWE.CA": {
         "trend": "SIDEWAYS",
         "date": "2026-03-02",
-        "signal_text": "\ud83d\udfe2 ORWE.CA | 22.75 | 2026-02-26 | 1.11%"
+        "signal_text": "\ud83d\udfe2 ORWE.CA | 21.89 | 2026-03-01 | 1.72%"
     },
     "JUFO.CA": {
         "trend": "SIDEWAYS",
@@ -82,40 +82,40 @@
     "DSCW.CA": {
         "trend": "SIDEWAYS",
         "date": "2026-03-02",
-        "signal_text": "\ud83d\udfe2 DSCW.CA | 1.62 | 2026-02-26 | 0.0%"
+        "signal_text": "\ud83d\udfe2 DSCW.CA | 1.58 | 2026-03-01 | 0.0%"
     },
     "SUGR.CA": {
         "trend": "SIDEWAYS",
         "date": "2026-03-02",
-        "signal_text": "\ud83d\udfe2 SUGR.CA | 46.49 | 2026-02-26 | 0.0%"
+        "signal_text": "\ud83d\udfe2 SUGR.CA | 45.38 | 2026-03-01 | 0.38%"
     },
     "ELSH.CA": {
-        "trend": "SIDEWAYS",
+        "trend": "DOWN",
         "date": "2026-03-02",
         "signal_text": "\ud83d\udfe2 ELSH.CA | 6.9 | 2026-02-26 | 0.73%"
     },
     "RMDA.CA": {
         "trend": "SIDEWAYS",
         "date": "2026-03-02",
-        "signal_text": "\ud83d\udd34 RMDA.CA | 4.51 | 2026-02-26 | 2.59%"
+        "signal_text": "\ud83d\udd34 RMDA.CA | 4.43 | 2026-03-01 | 4.32%"
     },
     "RAYA.CA": {
         "trend": "SIDEWAYS",
         "date": "2026-03-02",
-        "signal_text": "\ud83d\udd34 RAYA.CA | 5.7 | 2026-02-26 | 0.0%"
+        "signal_text": "\ud83d\udd34 RAYA.CA | 5.7 | 2026-03-01 | 0.0%"
     },
     "EEII.CA": {
         "trend": "SIDEWAYS",
         "date": "2026-03-02",
-        "signal_text": "\ud83d\udfe2 EEII.CA | 1.75 | 2026-02-26 | 0.0%"
+        "signal_text": "\ud83d\udfe2 EEII.CA | 1.69 | 2026-03-01 | 0.0%"
     },
     "MPCO.CA": {
         "trend": "SIDEWAYS",
         "date": "2026-03-02",
-        "signal_text": "\ud83d\udfe2 MPCO.CA | 1.52 | 2026-02-26 | 2.01%"
+        "signal_text": "\ud83d\udfe2 MPCO.CA | 1.45 | 2026-03-01 | 1.4%"
     },
     "GBCO.CA": {
-        "trend": "SIDEWAYS",
+        "trend": "UP",
         "date": "2026-03-02",
         "signal_text": "\ud83d\udfe2 GBCO.CA | 28.55 | 2026-02-26 | 0.0%"
     },
@@ -125,7 +125,7 @@
         "signal_text": "\ud83d\udfe2 TMGH.CA | 87.1 | 2026-02-26 | 0.0%"
     },
     "ORHD.CA": {
-        "trend": "SIDEWAYS",
+        "trend": "DOWN",
         "date": "2026-03-02",
         "signal_text": "\ud83d\udfe2 ORHD.CA | 25.9 | 2026-02-26 | 0.0%"
     },
@@ -135,7 +135,7 @@
         "signal_text": "\ud83d\udfe2 AMOC.CA | 7.11 | 2026-02-26 | 0.0%"
     },
     "FWRY.CA": {
-        "trend": "SIDEWAYS",
+        "trend": "UP",
         "date": "2026-03-02",
         "signal_text": "\ud83d\udfe2 FWRY.CA | 18.45 | 2026-02-26 | 1.37%"
     },
@@ -150,17 +150,17 @@
         "signal_text": "\ud83d\udfe2 ADIB.CA | 40.7 | 2026-02-26 | 0.12%"
     },
     "PHDC.CA": {
-        "trend": "SIDEWAYS",
+        "trend": "UP",
         "date": "2026-03-02",
         "signal_text": "\ud83d\udfe2 PHDC.CA | 9.05 | 2026-02-26 | 0.67%"
     },
     "MCQE.CA": {
-        "trend": "SIDEWAYS",
+        "trend": "UP",
         "date": "2026-03-02",
         "signal_text": "\ud83d\udfe2 MCQE.CA | 193.61 | 2026-02-26 | 0.39%"
     },
     "SKPC.CA": {
-        "trend": "SIDEWAYS",
+        "trend": "DOWN",
         "date": "2026-03-02",
         "signal_text": "\ud83d\udfe2 SKPC.CA | 16.65 | 2026-02-26 | 0.3%"
     },
