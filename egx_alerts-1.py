@@ -217,7 +217,7 @@ if messages:
     text = f"🚦 EGX Alerts – {today}\n\n" + "\n".join(messages)
 else:
     # لا توجد إشارات جديدة
-    text = f"MA S ℹ️ No new signal\n\nlast candle date:\n📅 {today}"
+    text = f"Egx-1 ℹ️ No new signal\n\nlast candle date:\n📅 {today}"
 
 send_telegram(text)
 
