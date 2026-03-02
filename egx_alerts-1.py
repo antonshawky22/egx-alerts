@@ -82,9 +82,9 @@ def find_swings(close_array):
     for i in range(DEPTH, n - DEPTH):
         window = close_array[i-DEPTH:i+DEPTH+1]
         if close_array[i] == np.max(window):
-            highs.append((i, float(close_array[i])))
+            highs.append((i, float(close_array[i].item())))
         if close_array[i] == np.min(window):
-            lows.append((i, float(close_array[i])))
+            lows.append((i, float(close_array[i].item())))
     return highs, lows
 
 def classify_trend(highs, lows):
@@ -106,18 +106,18 @@ def detect_signal(df, trend, highs, lows):
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
-    close = float(last["Close"].iloc[0] if hasattr(last["Close"], 'iloc') else last["Close"].item() if hasattr(last["Close"], 'item') else last["Close"])
+    close = float(last["Close"])
 
     signal = None
     stop = None
     dist_support = None
     dist_resist = None
 
-    prev_ema8 = float(prev["EMA8"].iloc[0] if hasattr(prev["EMA8"], 'iloc') else prev["EMA8"].item() if hasattr(prev["EMA8"], 'item') else prev["EMA8"])
-    prev_ema15 = float(prev["EMA15"].iloc[0] if hasattr(prev["EMA15"], 'iloc') else prev["EMA15"].item() if hasattr(prev["EMA15"], 'item') else prev["EMA15"])
-    last_ema8 = float(last["EMA8"].iloc[0] if hasattr(last["EMA8"], 'iloc') else last["EMA8"].item() if hasattr(last["EMA8"], 'item') else last["EMA8"])
-    last_ema15 = float(last["EMA15"].iloc[0] if hasattr(last["EMA15"], 'iloc') else last["EMA15"].item() if hasattr(last["EMA15"], 'item') else last["EMA15"])
-    last_rsi = float(last["RSI"].iloc[0] if hasattr(last["RSI"], 'iloc') else last["RSI"].item() if hasattr(last["RSI"], 'item') else last["RSI"])
+    prev_ema8 = float(prev["EMA8"])
+    prev_ema15 = float(prev["EMA15"])
+    last_ema8 = float(last["EMA8"])
+    last_ema15 = float(last["EMA15"])
+    last_rsi = float(last["RSI"])
 
     if trend == "UP":
         if prev_ema8 < prev_ema15 and last_ema8 > last_ema15:
@@ -130,8 +130,8 @@ def detect_signal(df, trend, highs, lows):
             stop = min([l[1] for l in lows[-DEPTH:]])
 
     elif trend == "SIDEWAYS":
-        support = float(df["Close"].min().item() if hasattr(df["Close"].min(), 'item') else df["Close"].min())
-        resistance = float(df["Close"].max().item() if hasattr(df["Close"].max(), 'item') else df["Close"].max())
+        support = float(df["Close"].min())
+        resistance = float(df["Close"].max())
         dist_support = (close - support) / support * 100
         dist_resist = (resistance - close) / resistance * 100
         if dist_support <= RANGE_ENTRY_PERCENT * 100:
@@ -164,9 +164,8 @@ for symbol in SYMBOLS:
     last_date = df.index[-1].date()
 
     signal, stop, dist_support, dist_resist = detect_signal(df, trend, highs, lows)
-    price = round(float(df["Close"].iloc[-1].item() if hasattr(df["Close"].iloc[-1], 'item') else df["Close"].iloc[-1]), 2)
+    price = round(float(df["Close"].iloc[-1]), 2)
 
-    # قراءة آخر إشارة محفوظة لمنع التكرار
     last_signal_state = state.get(symbol, {})
     last_signal_text = last_signal_state.get("signal_text", "")
 
@@ -177,7 +176,6 @@ for symbol in SYMBOLS:
     elif dist_resist is not None and dist_resist <= 5:
         dist_text = f" | {round(dist_resist,2)}%"
 
-    # تكوين النص الجديد
     if trend == "UP" and signal:
         new_signal_text = f"🟢 {symbol} | {price} | {last_date}{stop_text}"
     elif trend == "DOWN" and signal:
@@ -187,7 +185,6 @@ for symbol in SYMBOLS:
     else:
         new_signal_text = ""
 
-    # إذا الإشارة تغيرت فقط أضفها للرسائل
     if new_signal_text and new_signal_text != last_signal_text:
         if trend == "UP":
             messages_up.append(new_signal_text)
@@ -216,7 +213,6 @@ if messages_down:
 if messages:
     text = f"🚦 EGX Alerts – {today}\n\n" + "\n".join(messages)
 else:
-    # لا توجد إشارات جديدة
     text = f"Egx-1 ℹ️ No new signal\n\nlast candle date:\n📅 {last_date}"
 
 send_telegram(text)
