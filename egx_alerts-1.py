@@ -106,18 +106,30 @@ def detect_signal(df, trend, highs, lows):
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
-    close = float(last["Close"].iloc[0] if hasattr(last["Close"], 'iloc') else last["Close"].item() if hasattr(last["Close"], 'item') else last["Close"])
+    close = float(last["Close"].iloc[0] if hasattr(last["Close"], 'iloc') else
+                  last["Close"].item() if hasattr(last["Close"], 'item') else
+                  last["Close"])
 
     signal = None
     stop = None
     dist_support = None
     dist_resist = None
 
-    prev_ema8 = float(prev["EMA8"].iloc[0] if hasattr(prev["EMA8"], 'iloc') else prev["EMA8"].item() if hasattr(prev["EMA8"], 'item') else prev["EMA8"])
-    prev_ema15 = float(prev["EMA15"].iloc[0] if hasattr(prev["EMA15"], 'iloc') else prev["EMA15"].item() if hasattr(prev["EMA15"], 'item') else prev["EMA15"])
-    last_ema8 = float(last["EMA8"].iloc[0] if hasattr(last["EMA8"], 'iloc') else last["EMA8"].item() if hasattr(last["EMA8"], 'item') else last["EMA8"])
-    last_ema15 = float(last["EMA15"].iloc[0] if hasattr(last["EMA15"], 'iloc') else last["EMA15"].item() if hasattr(last["EMA15"], 'item') else last["EMA15"])
-    last_rsi = float(last["RSI"].iloc[0] if hasattr(last["RSI"], 'iloc') else last["RSI"].item() if hasattr(last["RSI"], 'item') else last["RSI"])
+    prev_ema8 = float(prev["EMA8"].iloc[0] if hasattr(prev["EMA8"], 'iloc') else
+                      prev["EMA8"].item() if hasattr(prev["EMA8"], 'item') else
+                      prev["EMA8"])
+    prev_ema15 = float(prev["EMA15"].iloc[0] if hasattr(prev["EMA15"], 'iloc') else
+                       prev["EMA15"].item() if hasattr(prev["EMA15"], 'item') else
+                       prev["EMA15"])
+    last_ema8 = float(last["EMA8"].iloc[0] if hasattr(last["EMA8"], 'iloc') else
+                      last["EMA8"].item() if hasattr(last["EMA8"], 'item') else
+                      last["EMA8"])
+    last_ema15 = float(last["EMA15"].iloc[0] if hasattr(last["EMA15"], 'iloc') else
+                       last["EMA15"].item() if hasattr(last["EMA15"], 'item') else
+                       last["EMA15"])
+    last_rsi = float(last["RSI"].iloc[0] if hasattr(last["RSI"], 'iloc') else
+                     last["RSI"].item() if hasattr(last["RSI"], 'item') else
+                     last["RSI"])
 
     if trend == "UP":
         if prev_ema8 < prev_ema15 and last_ema8 > last_ema15:
@@ -130,8 +142,8 @@ def detect_signal(df, trend, highs, lows):
             stop = min([l[1] for l in lows[-DEPTH:]])
 
     elif trend == "SIDEWAYS":
-        support = float(df["Close"].min())
-        resistance = float(df["Close"].max())
+        support = float(df["Close"].min().item() if hasattr(df["Close"].min(), "item") else df["Close"].min())
+        resistance = float(df["Close"].max().item() if hasattr(df["Close"].max(), "item") else df["Close"].max())
         dist_support = (close - support) / support * 100
         dist_resist = (resistance - close) / resistance * 100
         if dist_support <= RANGE_ENTRY_PERCENT * 100:
@@ -153,38 +165,39 @@ messages_up = []
 messages_side = []
 messages_down = []
 today = str(datetime.today().date())
-last_candle_date = None
-data_failed_symbols = []
 
 for symbol in SYMBOLS:
     df = get_data(symbol)
     if df is None:
-        data_failed_symbols.append(symbol)
+        messages_up.append(f"⚠️ {symbol} data failure")
         continue
 
     df = calculate_indicators(df)
     highs, lows = find_swings(df["Close"].values)
     trend = classify_trend(highs, lows)
-    last_candle_date = df.index[-1].date()
-
+    last_date = df.index[-1].date()
     previous_trend = state.get(symbol, {}).get("trend", "")
 
-    signal, stop, dist_support, dist_resist = detect_signal(df, trend, highs, lows)
+    # 🚧 أي تغيير اتجاه
+    if previous_trend and previous_trend != trend:
+        price = round(float(df["Close"].iloc[-1].item() if hasattr(df["Close"].iloc[-1], 'item') else df["Close"].iloc[-1]), 2)
+        messages_up.append(f"🚧 {symbol} | Trend: {previous_trend} → {trend} | {price} | {last_date}")
 
+    signal, stop, dist_support, dist_resist = detect_signal(df, trend, highs, lows)
     price = round(float(df["Close"].iloc[-1].item() if hasattr(df["Close"].iloc[-1], 'item') else df["Close"].iloc[-1]), 2)
     stop_text = f" | 🚨 Stop: {round(stop,2)}" if stop else ""
 
     if trend == "UP" and signal:
-        messages_up.append(f"🟢 {symbol} | {price} | {last_candle_date}{stop_text}")
+        messages_up.append(f"🟢 {symbol} | {price} | {last_date}{stop_text}")
     elif trend == "DOWN" and signal:
-        messages_down.append(f"🔴 {symbol} | {price} | {last_candle_date}{stop_text}")
+        messages_down.append(f"🔴 {symbol} | {price} | {last_date}{stop_text}")
     elif trend == "SIDEWAYS" and signal:
         dist_text = ""
         if dist_support is not None and dist_support <= 5:
             dist_text = f" | {round(dist_support,2)}%"
         elif dist_resist is not None and dist_resist <= 5:
             dist_text = f" | {round(dist_resist,2)}%"
-        messages_side.append(f"{'🟢' if signal=='BUY' else '🔴'} {symbol} | {price} | {last_candle_date}{dist_text}")
+        messages_side.append(f"{'🟢' if signal=='BUY' else '🔴'} {symbol} | {price} | {last_date}{dist_text}")
 
     state[symbol] = {"trend": trend, "date": today}
 
@@ -192,12 +205,6 @@ for symbol in SYMBOLS:
 # SEND TELEGRAM
 # =====================
 messages = []
-
-# بيانات فاشلة
-for sym in data_failed_symbols:
-    messages.append(f"⚠️ {sym} data failure")
-
-# إشارات موجودة
 if messages_up:
     messages.append("↗️ صاعد (شراء/بيع):")
     messages.extend([f"- {m}" for m in messages_up])
@@ -208,14 +215,12 @@ if messages_down:
     messages.append("🔻 هابط:")
     messages.extend([f"- {m}" for m in messages_down])
 
-# لا توجد إشارات
-if not messages_up and not messages_side and not messages_down and not data_failed_symbols:
-    last_date = last_candle_date if last_candle_date else today
-    messages.append(f"MA S ℹ️ No new signal\nLast candle date: {last_date}")
+# إذا لم توجد إشارات جديدة على الإطلاق
+if not messages_up and not messages_side and not messages_down:
+    messages.append(f"MA S ℹ️ No new signal\n📅 last candle date: {today}")
 
-if messages:
-    text = f"🚦 EGX Alerts – {today}\n\n" + "\n".join(messages)
-    send_telegram(text)
+text = f"🚦 EGX Alerts – {today}\n\n" + "\n".join(messages)
+send_telegram(text)
 
 # =====================
 # SAVE STATE
