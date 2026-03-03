@@ -1,1 +1,34 @@
-{}
+{
+  "OFH": {
+    "signal": "SELL",
+    "price": 0.49799999594688416
+  },
+  "OLFI": {
+    "signal": "SELL",
+    "price": 21.670000076293945
+  },
+  "EMFD": {
+    "signal": "SELL",
+    "price": 8.8100004196167
+  },
+  "ATQA": {
+    "signal": "SELL",
+    "price": 8.010000228881836
+  },
+  "ELEC": {
+    "signal": "SELL",
+    "price": 2.0399999618530273
+  },
+  "DSCW": {
+    "signal": "SELL",
+    "price": 1.6100000143051147
+  },
+  "ELSH": {
+    "signal": "SELL",
+    "price": 6.670000076293945
+  },
+  "EEII": {
+    "signal": "SELL",
+    "price": 1.6799999475479126
+  }
+}
