@@ -1,11 +1,10 @@
-print("EGX ALERTS - Corrected Breakout Engine (Daily Confirmed)")
+print("EGX ALERTS - Pre-Breakout Strategy")
 
 import yfinance as yf
 import requests
 import os
 import json
 import pandas as pd
-from datetime import datetime
 
 # =====================
 # Telegram settings
@@ -24,16 +23,19 @@ def send_telegram(text):
         print("Telegram send failed:", e)
 
 # =====================
-# EGX symbols (List for stability)
+# EGX symbols
 # =====================
-SYMBOLS = [
-    "OFH.CA","OLFI.CA","EMFD.CA","ETEL.CA","EAST.CA","EFIH.CA",
-    "ABUK.CA","OIH.CA","SWDY.CA","ISPH.CA","ATQA.CA","MTIE.CA",
-    "ELEC.CA","HRHO.CA","ORWE.CA","JUFO.CA","DSCW.CA","SUGR.CA",
-    "ELSH.CA","RMDA.CA","RAYA.CA","EEII.CA","MPCO.CA","GBCO.CA",
-    "TMGH.CA","ORHD.CA","AMOC.CA","FWRY.CA","COMI.CA","ADIB.CA",
-    "PHDC.CA","MCQE.CA","SKPC.CA","EGAL.CA"
-]
+symbols = {
+    "OFH":"OFH.CA","OLFI":"OLFI.CA","EMFD":"EMFD.CA","ETEL":"ETEL.CA",
+    "EAST":"EAST.CA","EFIH":"EFIH.CA","ABUK":"ABUK.CA","OIH":"OIH.CA",
+    "SWDY":"SWDY.CA","ISPH":"ISPH.CA","ATQA":"ATQA.CA","MTIE":"MTIE.CA",
+    "ELEC":"ELEC.CA","HRHO":"HRHO.CA","ORWE":"ORWE.CA","JUFO":"JUFO.CA",
+    "DSCW":"DSCW.CA","SUGR":"SUGR.CA","ELSH":"ELSH.CA","RMDA":"RMDA.CA",
+    "RAYA":"RAYA.CA","EEII":"EEII.CA","MPCO":"MPCO.CA","GBCO":"GBCO.CA",
+    "TMGH":"TMGH.CA","ORHD":"ORHD.CA","AMOC":"AMOC.CA","FWRY":"FWRY.CA",
+    "COMI":"COMI.CA","ADIB":"ADIB.CA","PHDC":"PHDC.CA",
+    "MCQE":"MCQE.CA","SKPC":"SKPC.CA","EGAL":"EGAL.CA"
+}
 
 # =====================
 # Load last signals
@@ -47,95 +49,94 @@ except:
 
 new_signals = last_signals.copy()
 data_failures = []
-latest_market_date = None
+last_candle_date = None
 
 # =====================
-# Trading Logic
+# Helpers
 # =====================
-def trading_signal(df):
-    if len(df) < 30:
+def fetch_data(ticker):
+    try:
+        df = yf.download(ticker, period="6mo", interval="1d", auto_adjust=True, progress=False)
+        if df is None or df.empty:
+            return None
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        return df
+    except:
         return None
 
+# =====================
+# Pre-Breakout Strategy Logic
+# =====================
+LOOKBACK = 30
+BREAKOUT_WINDOW = 20
+VOLUME_MULTIPLIER = 1.2
+
+section_buy = []
+section_sell = []
+
+for name, ticker in symbols.items():
+    df = fetch_data(ticker)
+    if df is None or len(df) < LOOKBACK:
+        data_failures.append(name)
+        continue
+
+    last_candle_date = df.index[-1].date()
     close = df['Close']
     high = df['High']
     low = df['Low']
     volume = df['Volume']
 
-    current_price = close.iloc[-1]
+    # =====================
+    # Compute rolling levels
+    # =====================
+    highest_high = high.rolling(BREAKOUT_WINDOW).max()
+    lowest_low = low.rolling(BREAKOUT_WINDOW).min()
+    vol_avg5 = volume.rolling(5).mean()
+    vol_avg20 = volume.rolling(20).mean()
 
-    highest_20 = high.rolling(20).max().iloc[-1]
-    lowest_20 = low.rolling(20).min().iloc[-1]
-    lowest_15 = low.rolling(15).min().iloc[-1]
+    last_price = close.iloc[-1]
+    last_high = highest_high.iloc[-1]
+    last_low = lowest_low.iloc[-1]
+    last_vol5 = vol_avg5.iloc[-1]
+    last_vol20 = vol_avg20.iloc[-1]
 
-    range_20 = (highest_20 - lowest_20) / lowest_20
-    cond_range = range_20 < 0.10
+    # =====================
+    # Pre-Breakout conditions
+    # =====================
+    breakout_range = (last_high - last_low) / last_low < 0.10  # تذبذب أقل من 10%
+    breakout_price = last_price >= 0.97 * last_high         # قرب اختراق القمة
+    breakout_volume = last_vol5 > VOLUME_MULTIPLIER * last_vol20  # زيادة حجم التداول
 
-    cond_break = current_price >= 0.97 * highest_20
-
-    vol_5 = volume.rolling(5).mean().iloc[-1]
-    vol_20 = volume.rolling(20).mean().iloc[-1]
-    cond_volume = vol_5 > 1.2 * vol_20
-
-    if cond_range and cond_break and cond_volume:
-        return "BUY"
-
-    if current_price < lowest_15:
-        return "SELL"
-
-    if current_price < lowest_20:
-        return "STOP LOSS"
-
-    return None
-
-# =====================
-# Main Scan
-# =====================
-message_lines = []
-
-for symbol in SYMBOLS:
-    try:
-        df = yf.download(symbol, period="6mo", interval="1d", progress=False)
-
-        if df.empty or len(df) < 30:
-            data_failures.append(symbol)
-            continue
-
-        last_date = df.index[-1].strftime("%Y-%m-%d")
-        latest_market_date = last_date
-
-        signal = trading_signal(df)
-
-        if signal and last_signals.get(symbol) != signal:
-            last_price = round(df['Close'].iloc[-1], 2)
-            emoji = "🟢" if signal == "BUY" else "🔴" if signal == "SELL" else "🟡"
-
-            message_lines.append(
-                f"{emoji} {signal} | {symbol} {last_price} | {last_date}"
-            )
-
-            new_signals[symbol] = signal
-
-    except Exception as e:
-        data_failures.append(symbol)
-        print(f"Failed {symbol}: {e}")
+    if breakout_range and breakout_price and breakout_volume:
+        section_buy.append(f"🟢 BUY | {name} | {last_price:.2f} | {last_candle_date}")
+        new_signals[name] = {"signal": "BUY", "price": float(last_price)}
+    elif last_price < lowest_low.iloc[-15]:  # Stop loss / حركة هبوط
+        section_sell.append(f"🔴 SELL | {name} | {last_price:.2f} | {last_candle_date}")
+        new_signals[name] = {"signal": "SELL", "price": float(last_price)}
 
 # =====================
-# Send Signals
+# Compile Message
 # =====================
-if message_lines:
-    final_message = "📊 EGX Daily Signals\n\n" + "\n".join(message_lines)
-    send_telegram(final_message)
-    last_signals.update(new_signals)
-    with open(SIGNALS_FILE, "w") as f:
-        json.dump(last_signals, f)
-else:
-    if latest_market_date:
-        send_telegram(f"لا توجد إشارات جديدة | {latest_market_date} ✅")
-    else:
-        send_telegram("لا توجد إشارات جديدة")
+alerts = ["🚦 EGX Pre-Breakout Signals:\n"]
 
-# =====================
-# Data Failures
-# =====================
+if section_buy:
+    alerts.append("↗️ احتمالية صعود (Pre-Breakout):")
+    alerts.extend(["- " + s for s in section_buy])
+if section_sell:
+    alerts.append("\n🔻 هبوط:")
+    alerts.extend(["- " + s for s in section_sell])
+
+if not section_buy and not section_sell:
+    alerts.append(f"ℹ️ لا توجد إشارات جديدة\nlast candle: {last_candle_date}")
+
 if data_failures:
-    send_telegram("⚠️ فشل تحميل البيانات: " + ", ".join(data_failures))
+    alerts.append("\n⚠️ فشل تحميل البيانات:\n- " + "\n- ".join(data_failures))
+
+# =====================
+# Save & Notify
+# =====================
+with open(SIGNALS_FILE, "w") as f:
+    json.dump(new_signals, f, indent=2, ensure_ascii=False)
+
+send_telegram("\n".join(alerts))
