@@ -1,4 +1,4 @@
-print("EGX ALERTS - Pre-Breakout Strategy (Auto BUY/SELL)")
+print("EGX ALERTS - Pre-Breakout Strategy (Auto.BUY/SELL)")
 
 import yfinance as yf
 import requests
