@@ -141,17 +141,22 @@ for name, ticker in symbols.items():
     elif prev_signal == "BUY":
         rsi_val = rsi14.iloc[-1]
         ema_val = ema3.iloc[-1]
-        # تحقق من أن القيم صالحة قبل البيع
+
+        # تحقق من القيم صالحة
         if not pd.isna(rsi_val) and not pd.isna(ema_val):
-            sell_condition = (
-                (last_price <= stop_loss) or
-                (rsi_val >= 80) or
-                (last_price < ema_val)
-            )
+            sell_condition = False
+            if last_price <= stop_loss:
+                sell_condition = True
+            elif rsi_val >= 80:
+                sell_condition = True
+            elif last_price < ema_val:
+                sell_condition = True
+
             if sell_condition:
                 section_sell.append(
                     f"🔴 SELL | {name} | Price: {last_price:.2f} | Date: {last_candle_date}"
                 )
+                # تحديث الإشارة فقط بعد تحقق شرط البيع
                 new_signals[name] = {"signal": "SELL", "price": float(last_price)}
 
 # =====================
