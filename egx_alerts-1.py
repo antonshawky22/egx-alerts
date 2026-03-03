@@ -53,10 +53,10 @@ new_signals = last_signals.copy()
 # =====================
 # Strategy parameters
 # =====================
-LOOKBACK = 35
-BREAKOUT_WINDOW = 22
+LOOKBACK = 30
+BREAKOUT_WINDOW = 30
 STOP_LOOKBACK = 15
-VOLUME_MULTIPLIER = 1.0
+VOLUME_MULTIPLIER = 1.1
 
 section_buy = []
 section_sell = []
@@ -121,8 +121,8 @@ for name, ticker in symbols.items():
     current_signal = None
 
     # ---- BUY ----
-    breakout_range = (last_high - last_low) / last_low < 0.50
-    breakout_price = last_price >= 0.50 * last_high
+    breakout_range = (last_high - last_low) / last_low < 0.70
+    breakout_price = last_price >= 0.30 * last_high
     breakout_volume = last_vol5 > VOLUME_MULTIPLIER * last_vol20
 
     if breakout_range and breakout_price and breakout_volume:
