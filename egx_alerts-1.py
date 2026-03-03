@@ -1,4 +1,4 @@
-print("EGX ALERTS - Pre-Breakout Strategy")
+print("EGX ALERTS - Pre-Breakout Strategy (With Stop Loss & Target)")
 
 import yfinance as yf
 import requests
@@ -66,15 +66,23 @@ def fetch_data(ticker):
         return None
 
 # =====================
-# Pre-Breakout Strategy Logic
+# Pre-Breakout Strategy Parameters
 # =====================
 LOOKBACK = 30
 BREAKOUT_WINDOW = 20
 VOLUME_MULTIPLIER = 1.2
+TARGET_PERCENT = 0.07  # 7% هدف تقريبي
+STOP_LOOKBACK = 15     # لحساب ستوب لوس ديناميكي
 
+# =====================
+# Containers
+# =====================
 section_buy = []
 section_sell = []
 
+# =====================
+# Main Logic
+# =====================
 for name, ticker in symbols.items():
     df = fetch_data(ticker)
     if df is None or len(df) < LOOKBACK:
@@ -100,19 +108,25 @@ for name, ticker in symbols.items():
     last_low = lowest_low.iloc[-1]
     last_vol5 = vol_avg5.iloc[-1]
     last_vol20 = vol_avg20.iloc[-1]
+    stop_loss = low.rolling(STOP_LOOKBACK).min().iloc[-1]
+    target = last_price * (1 + TARGET_PERCENT)
 
     # =====================
     # Pre-Breakout conditions
     # =====================
-    breakout_range = (last_high - last_low) / last_low < 0.10  # تذبذب أقل من 10%
-    breakout_price = last_price >= 0.97 * last_high         # قرب اختراق القمة
-    breakout_volume = last_vol5 > VOLUME_MULTIPLIER * last_vol20  # زيادة حجم التداول
+    breakout_range = (last_high - last_low) / last_low < 0.10
+    breakout_price = last_price >= 0.97 * last_high
+    breakout_volume = last_vol5 > VOLUME_MULTIPLIER * last_vol20
 
     if breakout_range and breakout_price and breakout_volume:
-        section_buy.append(f"🟢 BUY | {name} | {last_price:.2f} | {last_candle_date}")
-        new_signals[name] = {"signal": "BUY", "price": float(last_price)}
-    elif last_price < lowest_low.iloc[-15]:  # Stop loss / حركة هبوط
-        section_sell.append(f"🔴 SELL | {name} | {last_price:.2f} | {last_candle_date}")
+        section_buy.append(
+            f"🟢 BUY | {name} | Price: {last_price:.2f} | SL: {stop_loss:.2f} | Target: {target:.2f} | Date: {last_candle_date}"
+        )
+        new_signals[name] = {"signal": "BUY", "price": float(last_price), "stop_loss": float(stop_loss), "target": float(target)}
+    elif last_price < stop_loss:  # Stop loss triggered
+        section_sell.append(
+            f"🔴 SELL | {name} | Price: {last_price:.2f} | Date: {last_candle_date}"
+        )
         new_signals[name] = {"signal": "SELL", "price": float(last_price)}
 
 # =====================
@@ -124,7 +138,7 @@ if section_buy:
     alerts.append("↗️ احتمالية صعود (Pre-Breakout):")
     alerts.extend(["- " + s for s in section_buy])
 if section_sell:
-    alerts.append("\n🔻 هبوط:")
+    alerts.append("\n🔻 هبوط / Stop Loss:")
     alerts.extend(["- " + s for s in section_sell])
 
 if not section_buy and not section_sell:
