@@ -1,10 +1,11 @@
-print("EGX ALERTS - Breakout Engine (Daily Confirmed)")
+print("EGX ALERTS - Corrected Breakout Engine (Daily Confirmed)")
 
 import yfinance as yf
 import requests
 import os
 import json
 import pandas as pd
+from datetime import datetime
 
 # =====================
 # Telegram settings
@@ -23,9 +24,9 @@ def send_telegram(text):
         print("Telegram send failed:", e)
 
 # =====================
-# EGX symbols (List corrected)
+# EGX symbols (List for stability)
 # =====================
-symbols = [
+SYMBOLS = [
     "OFH.CA","OLFI.CA","EMFD.CA","ETEL.CA","EAST.CA","EFIH.CA",
     "ABUK.CA","OIH.CA","SWDY.CA","ISPH.CA","ATQA.CA","MTIE.CA",
     "ELEC.CA","HRHO.CA","ORWE.CA","JUFO.CA","DSCW.CA","SUGR.CA",
@@ -91,9 +92,9 @@ def trading_signal(df):
 # =====================
 message_lines = []
 
-for symbol in symbols:
+for symbol in SYMBOLS:
     try:
-        df = yf.download(symbol, period="6mo", interval="1d", progress=False, auto_adjust=True)
+        df = yf.download(symbol, period="6mo", interval="1d", progress=False)
 
         if df.empty or len(df) < 30:
             data_failures.append(symbol)
@@ -105,18 +106,18 @@ for symbol in symbols:
         signal = trading_signal(df)
 
         if signal and last_signals.get(symbol) != signal:
-
             last_price = round(df['Close'].iloc[-1], 2)
             emoji = "🟢" if signal == "BUY" else "🔴" if signal == "SELL" else "🟡"
 
             message_lines.append(
-                f"{emoji} {signal} | {symbol.replace('.CA','')} {last_price} | {last_date}"
+                f"{emoji} {signal} | {symbol} {last_price} | {last_date}"
             )
 
             new_signals[symbol] = signal
 
-    except:
+    except Exception as e:
         data_failures.append(symbol)
+        print(f"Failed {symbol}: {e}")
 
 # =====================
 # Send Signals
@@ -124,11 +125,9 @@ for symbol in symbols:
 if message_lines:
     final_message = "📊 EGX Daily Signals\n\n" + "\n".join(message_lines)
     send_telegram(final_message)
-
     last_signals.update(new_signals)
     with open(SIGNALS_FILE, "w") as f:
-        json.dump(last_signals, f, indent=2)
-
+        json.dump(last_signals, f)
 else:
     if latest_market_date:
         send_telegram(f"لا توجد إشارات جديدة | {latest_market_date} ✅")
@@ -139,4 +138,4 @@ else:
 # Data Failures
 # =====================
 if data_failures:
-    send_telegram("⚠️ فشل تحميل البيانات: " + ", ".join([s.replace('.CA','') for s in data_failures]))
+    send_telegram("⚠️ فشل تحميل البيانات: " + ", ".join(data_failures))
