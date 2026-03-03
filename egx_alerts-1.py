@@ -71,7 +71,6 @@ def fetch_data(ticker):
 LOOKBACK = 35
 BREAKOUT_WINDOW = 22
 VOLUME_MULTIPLIER = 1.0
-TARGET_PERCENT = 0.09
 STOP_LOOKBACK = 15     # حساب ستوب لوس ديناميكي
 
 # =====================
@@ -109,10 +108,16 @@ for name, ticker in symbols.items():
     last_vol5 = vol_avg5.iloc[-1]
     last_vol20 = vol_avg20.iloc[-1]
     stop_loss = low.rolling(STOP_LOOKBACK).min().iloc[-1]
-    target = last_price * (1 + TARGET_PERCENT)
 
     # =====================
-    # Pre-Breakout conditions
+    # Compute indicators for SELL
+    # =====================
+    rsi14 = 100 - (100 / (1 + ((close.diff().clip(lower=0).rolling(14).mean()) /
+                               (close.diff().clip(upper=0).abs().rolling(14).mean()))))
+    ema3 = close.ewm(span=3, adjust=False).mean()
+
+    # =====================
+    # Pre-Breakout conditions for BUY
     # =====================
     breakout_range = (last_high - last_low) / last_low < 0.13
     breakout_price = last_price >= 0.80 * last_high
@@ -128,16 +133,19 @@ for name, ticker in symbols.items():
         section_buy.append(
             f"🟢 BUY | {name} |{last_price:.2f} |{last_candle_date}"
         )
-        new_signals[name] = {"signal": "BUY", "price": float(last_price), "stop_loss": float(stop_loss), "target": float(target)}
+        new_signals[name] = {"signal": "BUY", "price": float(last_price), "stop_loss": float(stop_loss)}
 
     # =====================
-    # SELL signal (Stop Loss or Target reached)
+    # SELL signal (Stop Loss / RSI / EMA3)
     # =====================
     elif prev_signal == "BUY":
-        prev_target = prev_data.get("target", last_price * (1 + TARGET_PERCENT))
-        prev_stop = prev_data.get("stop_loss", stop_loss)
-
-        if last_price >= prev_target or last_price <= prev_stop:
+        # شروط البيع الجديدة
+        sell_condition = (
+            (last_price <= stop_loss) or
+            (rsi14.iloc[-1] >= 80) or
+            (last_price < ema3.iloc[-1])
+        )
+        if sell_condition:
             section_sell.append(
                 f"🔴 SELL | {name} | Price: {last_price:.2f} | Date: {last_candle_date}"
             )
@@ -152,7 +160,7 @@ if section_buy:
     alerts.append("↗️ احتمالية صعود (Pre-Breakout):")
     alerts.extend(["- " + s for s in section_buy])
 if section_sell:
-    alerts.append("\n🔻 هبوط / Stop Loss / Target:")
+    alerts.append("\n🔻 هبوط / Stop Loss / RSI / EMA3:")
     alerts.extend(["- " + s for s in section_sell])
 
 if not section_buy and not section_sell:
