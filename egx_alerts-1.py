@@ -24,17 +24,42 @@ def send_telegram(text):
         print("Telegram send failed:", e)
 
 # =====================
-# EGX symbols
-# =====================
-
-symbols = {
-    "OFH.CA","OLFI.CA","EMFD.CA","ETEL.CA","EAST.CA","EFIH.CA",
-    "ABUK.CA","OIH.CA","SWDY.CA","ISPH.CA","ATQA.CA","MTIE.CA",
-    "ELEC.CA","HRHO.CA","ORWE.CA","JUFO.CA","DSCW.CA","SUGR.CA",
-    "ELSH.CA","RMDA.CA","RAYA.CA","EEII.CA","MPCO.CA","GBCO.CA",
-    "TMGH.CA","ORHD.CA","AMOC.CA","FWRY.CA","COMI.CA","ADIB.CA",
-    "PHDC.CA","MCQE.CA","SKPC.CA","EGAL.CA"
-    }
+# EGX symbols = {
+    "OFH": "OFH.CA",
+    "OLFI": "OLFI.CA",
+    "EMFD": "EMFD.CA",
+    "ETEL": "ETEL.CA",
+    "EAST": "EAST.CA",
+    "EFIH": "EFIH.CA",
+    "ABUK": "ABUK.CA",
+    "OIH": "OIH.CA",
+    "SWDY": "SWDY.CA",
+    "ISPH": "ISPH.CA",
+    "ATQA": "ATQA.CA",
+    "MTIE": "MTIE.CA",
+    "ELEC": "ELEC.CA",
+    "HRHO": "HRHO.CA",
+    "ORWE": "ORWE.CA",
+    "JUFO": "JUFO.CA",
+    "DSCW": "DSCW.CA",
+    "SUGR": "SUGR.CA",
+    "ELSH": "ELSH.CA",
+    "RMDA": "RMDA.CA",
+    "RAYA": "RAYA.CA",
+    "EEII": "EEII.CA",
+    "MPCO": "MPCO.CA",
+    "GBCO": "GBCO.CA",
+    "TMGH": "TMGH.CA",
+    "ORHD": "ORHD.CA",
+    "AMOC": "AMOC.CA",
+    "FWRY": "FWRY.CA",
+    "COMI": "COMI.CA",
+    "ADIB": "ADIB.CA",
+    "PHDC": "PHDC.CA",
+    "MCQE": "MCQE.CA",
+    "SKPC": "SKPC.CA",
+    "EGAL": "EGAL.CA"
+}
 # =====================
 # Load last signals
 # =====================
