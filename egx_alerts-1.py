@@ -68,11 +68,11 @@ def fetch_data(ticker):
 # =====================
 # Strategy Parameters
 # =====================
-LOOKBACK = 30
-BREAKOUT_WINDOW = 15
-VOLUME_MULTIPLIER = 1.0
-TARGET_PERCENT = 0.07  # 7% هدف
-STOP_LOOKBACK = 15     # لحساب ستوب لوس ديناميكي
+LOOKBACK = 35
+BREAKOUT_WINDOW = 22
+VOLUME_MULTIPLIER = 1.1
+TARGET_PERCENT = 0.09
+STOP_LOOKBACK = 15     # حساب ستوب لوس ديناميكي
 
 # =====================
 # Containers
@@ -114,7 +114,7 @@ for name, ticker in symbols.items():
     # =====================
     # Pre-Breakout conditions
     # =====================
-    breakout_range = (last_high - last_low) / last_low < 0.20
+    breakout_range = (last_high - last_low) / last_low < 0.13
     breakout_price = last_price >= 0.90 * last_high
     breakout_volume = last_vol5 > VOLUME_MULTIPLIER * last_vol20
 
