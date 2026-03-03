@@ -110,5 +110,30 @@
   "SKPC": {
     "signal": "SELL",
     "price": 16.450000762939453
+  },
+  "ISPH": {
+    "signal": "BUY",
+    "price": 11.579999923706055,
+    "stop_loss": 10.899999618530273
+  },
+  "JUFO": {
+    "signal": "BUY",
+    "price": 26.780000686645508,
+    "stop_loss": 25.0
+  },
+  "DSCW": {
+    "signal": "BUY",
+    "price": 1.6100000143051147,
+    "stop_loss": 1.4500000476837158
+  },
+  "MCQE": {
+    "signal": "BUY",
+    "price": 196.61000061035156,
+    "stop_loss": 171.0
+  },
+  "EGAL": {
+    "signal": "BUY",
+    "price": 237.22000122070312,
+    "stop_loss": 212.0
   }
 }
