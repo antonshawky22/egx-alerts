@@ -43,5 +43,77 @@
     "signal": "BUY",
     "price": 196.61000061035156,
     "stop_loss": 171.0
+  },
+  "OFH": {
+    "signal": "SELL",
+    "price": 0.49799999594688416
+  },
+  "OLFI": {
+    "signal": "SELL",
+    "price": 21.670000076293945
+  },
+  "EMFD": {
+    "signal": "SELL",
+    "price": 8.8100004196167
+  },
+  "EFIH": {
+    "signal": "SELL",
+    "price": 20.06999969482422
+  },
+  "ABUK": {
+    "signal": "SELL",
+    "price": 67.80000305175781
+  },
+  "MTIE": {
+    "signal": "SELL",
+    "price": 7.860000133514404
+  },
+  "ELEC": {
+    "signal": "SELL",
+    "price": 2.0399999618530273
+  },
+  "HRHO": {
+    "signal": "SELL",
+    "price": 26.399999618530273
+  },
+  "ORWE": {
+    "signal": "SELL",
+    "price": 22.0
+  },
+  "SUGR": {
+    "signal": "SELL",
+    "price": 45.5099983215332
+  },
+  "ELSH": {
+    "signal": "SELL",
+    "price": 6.670000076293945
+  },
+  "MPCO": {
+    "signal": "SELL",
+    "price": 1.4500000476837158
+  },
+  "GBCO": {
+    "signal": "SELL",
+    "price": 28.170000076293945
+  },
+  "ORHD": {
+    "signal": "SELL",
+    "price": 24.790000915527344
+  },
+  "FWRY": {
+    "signal": "SELL",
+    "price": 17.700000762939453
+  },
+  "ADIB": {
+    "signal": "SELL",
+    "price": 39.9900016784668
+  },
+  "PHDC": {
+    "signal": "SELL",
+    "price": 8.850000381469727
+  },
+  "SKPC": {
+    "signal": "SELL",
+    "price": 16.450000762939453
   }
 }
