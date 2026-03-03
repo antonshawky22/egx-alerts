@@ -24,7 +24,10 @@ def send_telegram(text):
         print("Telegram send failed:", e)
 
 # =====================
-# EGX symbols = {
+# EGX symbols
+# =====================
+
+symbols = {
     "OFH": "OFH.CA",
     "OLFI": "OLFI.CA",
     "EMFD": "EMFD.CA",
@@ -60,6 +63,7 @@ def send_telegram(text):
     "SKPC": "SKPC.CA",
     "EGAL": "EGAL.CA"
 }
+
 # =====================
 # Load last signals
 # =====================
