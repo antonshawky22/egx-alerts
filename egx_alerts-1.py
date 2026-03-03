@@ -1,4 +1,4 @@
-print("EGX ALERTS - Pre-Breakout Strategy (With Stop Loss & Target)")
+print("EGX ALERTS - Pre-Breakout Strategy (Auto BUY/SELL)")
 
 import yfinance as yf
 import requests
@@ -66,12 +66,12 @@ def fetch_data(ticker):
         return None
 
 # =====================
-# Pre-Breakout Strategy Parameters
+# Strategy Parameters
 # =====================
 LOOKBACK = 30
 BREAKOUT_WINDOW = 20
 VOLUME_MULTIPLIER = 1.2
-TARGET_PERCENT = 0.07  # 7% هدف تقريبي
+TARGET_PERCENT = 0.07  # 7% هدف
 STOP_LOOKBACK = 15     # لحساب ستوب لوس ديناميكي
 
 # =====================
@@ -118,16 +118,30 @@ for name, ticker in symbols.items():
     breakout_price = last_price >= 0.97 * last_high
     breakout_volume = last_vol5 > VOLUME_MULTIPLIER * last_vol20
 
-    if breakout_range and breakout_price and breakout_volume:
+    prev_data = last_signals.get(name, {})
+    prev_signal = prev_data.get("signal", "")
+
+    # =====================
+    # BUY signal
+    # =====================
+    if breakout_range and breakout_price and breakout_volume and prev_signal != "BUY":
         section_buy.append(
             f"🟢 BUY | {name} | Price: {last_price:.2f} | SL: {stop_loss:.2f} | Target: {target:.2f} | Date: {last_candle_date}"
         )
         new_signals[name] = {"signal": "BUY", "price": float(last_price), "stop_loss": float(stop_loss), "target": float(target)}
-    elif last_price < stop_loss:  # Stop loss triggered
-        section_sell.append(
-            f"🔴 SELL | {name} | Price: {last_price:.2f} | Date: {last_candle_date}"
-        )
-        new_signals[name] = {"signal": "SELL", "price": float(last_price)}
+
+    # =====================
+    # SELL signal (Stop Loss or Target reached)
+    # =====================
+    elif prev_signal == "BUY":
+        prev_target = prev_data.get("target", last_price * (1 + TARGET_PERCENT))
+        prev_stop = prev_data.get("stop_loss", stop_loss)
+
+        if last_price >= prev_target or last_price <= prev_stop:
+            section_sell.append(
+                f"🔴 SELL | {name} | Price: {last_price:.2f} | Date: {last_candle_date}"
+            )
+            new_signals[name] = {"signal": "SELL", "price": float(last_price)}
 
 # =====================
 # Compile Message
@@ -138,7 +152,7 @@ if section_buy:
     alerts.append("↗️ احتمالية صعود (Pre-Breakout):")
     alerts.extend(["- " + s for s in section_buy])
 if section_sell:
-    alerts.append("\n🔻 هبوط / Stop Loss:")
+    alerts.append("\n🔻 هبوط / Stop Loss / Target:")
     alerts.extend(["- " + s for s in section_sell])
 
 if not section_buy and not section_sell:
