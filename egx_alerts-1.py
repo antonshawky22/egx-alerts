@@ -1,4 +1,4 @@
-print("EGX ALERTS - Pre-Breakout Strategy (Auto.BUY/SELL)")
+print("EGX ALERTS - Pre-Breakout (Final Stable State Machine)")
 
 import yfinance as yf
 import requests
@@ -7,7 +7,7 @@ import json
 import pandas as pd
 
 # =====================
-# Telegram settings
+# Telegram
 # =====================
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
@@ -20,10 +20,10 @@ def send_telegram(text):
     try:
         requests.post(url, data={"chat_id": CHAT_ID, "text": text}, timeout=10)
     except Exception as e:
-        print("Telegram send failed:", e)
+        print("Telegram error:", e)
 
 # =====================
-# EGX symbols
+# FULL EGX SYMBOL LIST
 # =====================
 symbols = {
     "OFH":"OFH.CA","OLFI":"OLFI.CA","EMFD":"EMFD.CA","ETEL":"ETEL.CA",
@@ -41,6 +41,7 @@ symbols = {
 # Load last signals
 # =====================
 SIGNALS_FILE = "last_signals.json"
+
 try:
     with open(SIGNALS_FILE, "r") as f:
         last_signals = json.load(f)
@@ -48,11 +49,21 @@ except:
     last_signals = {}
 
 new_signals = last_signals.copy()
+
+# =====================
+# Strategy parameters
+# =====================
+LOOKBACK = 35
+BREAKOUT_WINDOW = 22
+STOP_LOOKBACK = 15
+
+section_buy = []
+section_sell = []
 data_failures = []
 last_candle_date = None
 
 # =====================
-# Helpers
+# Fetch data
 # =====================
 def fetch_data(ticker):
     try:
@@ -66,124 +77,108 @@ def fetch_data(ticker):
         return None
 
 # =====================
-# Strategy Parameters
-# =====================
-LOOKBACK = 35
-BREAKOUT_WINDOW = 22
-VOLUME_MULTIPLIER = 1.0
-STOP_LOOKBACK = 15     # حساب ستوب لوس ديناميكي
-
-# =====================
-# Containers
-# =====================
-section_buy = []
-section_sell = []
-
-# =====================
-# Main Logic
+# MAIN LOOP
 # =====================
 for name, ticker in symbols.items():
+
     df = fetch_data(ticker)
     if df is None or len(df) < LOOKBACK:
         data_failures.append(name)
         continue
 
     last_candle_date = df.index[-1].date()
-    close = df['Close']
-    high = df['High']
-    low = df['Low']
-    volume = df['Volume']
 
-    # =====================
-    # Compute rolling levels
-    # =====================
-    highest_high = high.rolling(BREAKOUT_WINDOW).max()
-    lowest_low = low.rolling(BREAKOUT_WINDOW).min()
-    vol_avg5 = volume.rolling(5).mean()
-    vol_avg20 = volume.rolling(20).mean()
+    close = df["Close"]
+    high = df["High"]
+    low = df["Low"]
+    volume = df["Volume"]
 
     last_price = close.iloc[-1]
-    last_high = highest_high.iloc[-1]
-    last_low = lowest_low.iloc[-1]
-    last_vol5 = vol_avg5.iloc[-1]
-    last_vol20 = vol_avg20.iloc[-1]
+
+    # ===== Indicators =====
+    highest_high = high.rolling(BREAKOUT_WINDOW).max()
+    lowest_low = low.rolling(BREAKOUT_WINDOW).min()
+
     stop_loss = low.rolling(STOP_LOOKBACK).min().iloc[-1]
 
-    # =====================
-    # Compute indicators for SELL
-    # =====================
     rsi14 = 100 - (100 / (1 + ((close.diff().clip(lower=0).rolling(14).mean()) /
                                (close.diff().clip(upper=0).abs().rolling(14).mean()))))
+
     ema3 = close.ewm(span=3, adjust=False).mean()
 
-    # =====================
-    # Pre-Breakout conditions for BUY
-    # =====================
-    breakout_range = (last_high - last_low) / last_low < 0.50
-    breakout_price = last_price >= 0.50 * last_high
-    breakout_volume = last_vol5 > VOLUME_MULTIPLIER * last_vol20
+    last_high = highest_high.iloc[-1]
+    last_low = lowest_low.iloc[-1]
 
+    # =====================
+    # Calculate CURRENT signal
+    # =====================
+    current_signal = None
+
+    # ---- BUY ----
+    breakout_range = (last_high - last_low) / last_low < 0.13
+    breakout_price = last_price >= 0.80 * last_high
+
+    if breakout_range and breakout_price:
+        current_signal = "BUY"
+
+    # ---- SELL ----
+    rsi_val = rsi14.iloc[-1]
+    ema_val = ema3.iloc[-1]
+
+    if not pd.isna(rsi_val) and not pd.isna(ema_val):
+        if (last_price <= stop_loss) or (rsi_val >= 80) or (last_price < ema_val):
+            current_signal = "SELL"
+
+    # =====================
+    # Compare with previous state
+    # =====================
     prev_data = last_signals.get(name, {})
-    prev_signal = prev_data.get("signal", "")
+    prev_signal = prev_data.get("signal")
 
-    # =====================
-    # BUY signal
-    # =====================
-    if breakout_range and breakout_price and breakout_volume and prev_signal != "BUY":
+    if current_signal == prev_signal:
+        continue
+
+    if current_signal == "BUY":
         section_buy.append(
-            f"🟢 BUY | {name} |{last_price:.2f} |{last_candle_date}"
+            f"🟢 BUY | {name} | {last_price:.2f} | {last_candle_date}"
         )
-        new_signals[name] = {"signal": "BUY", "price": float(last_price), "stop_loss": float(stop_loss)}
+        new_signals[name] = {
+            "signal": "BUY",
+            "price": float(last_price),
+            "stop_loss": float(stop_loss)
+        }
 
-    # =====================
-    # SELL signal (Stop Loss / RSI / EMA3)
-    # =====================
-    if prev_signal == "BUY":
-        rsi_val = rsi14.iloc[-1]
-        ema_val = ema3.iloc[-1]
-
-        # تحقق من أن القيم صالحة قبل البيع
-        if not pd.isna(rsi_val) and not pd.isna(ema_val):
-            sell_condition = (
-                (last_price <= stop_loss) or
-                (rsi_val >= 80) or
-                (last_price < ema_val)
-            )
-
-            # حدث الإشارة فقط إذا تحقق شرط البيع
-            if sell_condition:
-                section_sell.append(
-                    f"🔴 SELL | {name} | Price: {last_price:.2f} | Date: {last_candle_date}"
-                )
-                new_signals[name] = {"signal": "SELL", "price": float(last_price)}
-            else:
-                # لم يتحقق البيع، نحتفظ بالإشارة BUY كما هي
-                new_signals[name] = {
-                    "signal": "BUY",
-                    "price": float(prev_data.get("price", last_price)),
-                    "stop_loss": float(prev_data.get("stop_loss", stop_loss))
-                }
+    elif current_signal == "SELL":
+        section_sell.append(
+            f"🔴 SELL | {name} | {last_price:.2f} | {last_candle_date}"
+        )
+        new_signals[name] = {
+            "signal": "SELL",
+            "price": float(last_price)
+        }
 
 # =====================
-# Compile Message
+# Build message
 # =====================
-alerts = ["🚦 EGX Pre-Breakout Signals:\n"]
+alerts = ["🚦 EGX Signals:\n"]
 
 if section_buy:
-    alerts.append("↗️ احتمالية صعود (Pre-Breakout):")
+    alerts.append("↗️ BUY:")
     alerts.extend(["- " + s for s in section_buy])
+
 if section_sell:
-    alerts.append("\n🔻 هبوط / Stop Loss / RSI / EMA3:")
+    alerts.append("\n🔻 SELL:")
     alerts.extend(["- " + s for s in section_sell])
 
 if not section_buy and not section_sell:
-    alerts.append(f"ℹ️ لا توجد إشارات جديدة\nlast candle: {last_candle_date}")
+    alerts.append(f"ℹ️ No new signal | Last candle: {last_candle_date}")
 
 if data_failures:
-    alerts.append("\n⚠️ فشل تحميل البيانات:\n- " + "\n- ".join(data_failures))
+    alerts.append("\n⚠️ Failed to fetch data:")
+    alerts.extend(["- " + s for s in data_failures])
 
 # =====================
-# Save & Notify
+# Save state
 # =====================
 with open(SIGNALS_FILE, "w") as f:
     json.dump(new_signals, f, indent=2, ensure_ascii=False)
