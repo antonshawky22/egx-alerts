@@ -119,8 +119,8 @@ for name, ticker in symbols.items():
     # =====================
     # Pre-Breakout conditions for BUY
     # =====================
-    breakout_range = (last_high - last_low) / last_low < 0.13
-    breakout_price = last_price >= 0.80 * last_high
+    breakout_range = (last_high - last_low) / last_low < 0.50
+    breakout_price = last_price >= 0.50 * last_high
     breakout_volume = last_vol5 > VOLUME_MULTIPLIER * last_vol20
 
     prev_data = last_signals.get(name, {})
