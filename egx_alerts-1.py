@@ -56,6 +56,7 @@ new_signals = last_signals.copy()
 LOOKBACK = 35
 BREAKOUT_WINDOW = 22
 STOP_LOOKBACK = 15
+VOLUME_MULTIPLIER = 1.0
 
 section_buy = []
 section_sell = []
@@ -109,6 +110,11 @@ for name, ticker in symbols.items():
     last_high = highest_high.iloc[-1]
     last_low = lowest_low.iloc[-1]
 
+    vol_avg5 = volume.rolling(5).mean()
+    vol_avg20 = volume.rolling(20).mean()
+    last_vol5 = vol_avg5.iloc[-1]
+    last_vol20 = vol_avg20.iloc[-1]
+
     # =====================
     # Calculate CURRENT signal
     # =====================
@@ -117,8 +123,9 @@ for name, ticker in symbols.items():
     # ---- BUY ----
     breakout_range = (last_high - last_low) / last_low < 0.50
     breakout_price = last_price >= 0.50 * last_high
+    breakout_volume = last_vol5 > VOLUME_MULTIPLIER * last_vol20
 
-    if breakout_range and breakout_price:
+    if breakout_range and breakout_price and breakout_volume:
         current_signal = "BUY"
 
     # ---- SELL ----
