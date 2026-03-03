@@ -1,1 +1,114 @@
-{}
+{
+  "OFH": {
+    "signal": "SELL",
+    "price": 0.49799999594688416
+  },
+  "OLFI": {
+    "signal": "SELL",
+    "price": 21.670000076293945
+  },
+  "EMFD": {
+    "signal": "SELL",
+    "price": 8.8100004196167
+  },
+  "ETEL": {
+    "signal": "SELL",
+    "price": 88.83000183105469
+  },
+  "EAST": {
+    "signal": "SELL",
+    "price": 39.9900016784668
+  },
+  "EFIH": {
+    "signal": "SELL",
+    "price": 20.06999969482422
+  },
+  "ABUK": {
+    "signal": "SELL",
+    "price": 67.80000305175781
+  },
+  "OIH": {
+    "signal": "SELL",
+    "price": 1.1699999570846558
+  },
+  "SWDY": {
+    "signal": "SELL",
+    "price": 76.80999755859375
+  },
+  "ATQA": {
+    "signal": "SELL",
+    "price": 8.010000228881836
+  },
+  "MTIE": {
+    "signal": "SELL",
+    "price": 7.860000133514404
+  },
+  "ELEC": {
+    "signal": "SELL",
+    "price": 2.0399999618530273
+  },
+  "HRHO": {
+    "signal": "SELL",
+    "price": 26.399999618530273
+  },
+  "ORWE": {
+    "signal": "SELL",
+    "price": 22.0
+  },
+  "SUGR": {
+    "signal": "SELL",
+    "price": 45.5099983215332
+  },
+  "ELSH": {
+    "signal": "SELL",
+    "price": 6.670000076293945
+  },
+  "RAYA": {
+    "signal": "SELL",
+    "price": 5.420000076293945
+  },
+  "EEII": {
+    "signal": "SELL",
+    "price": 1.6799999475479126
+  },
+  "MPCO": {
+    "signal": "SELL",
+    "price": 1.4500000476837158
+  },
+  "GBCO": {
+    "signal": "SELL",
+    "price": 28.170000076293945
+  },
+  "TMGH": {
+    "signal": "SELL",
+    "price": 83.22000122070312
+  },
+  "ORHD": {
+    "signal": "SELL",
+    "price": 24.790000915527344
+  },
+  "AMOC": {
+    "signal": "SELL",
+    "price": 7.039999961853027
+  },
+  "FWRY": {
+    "signal": "SELL",
+    "price": 17.700000762939453
+  },
+  "COMI": {
+    "signal": "SELL",
+    "price": 128.25
+  },
+  "ADIB": {
+    "signal": "SELL",
+    "price": 39.9900016784668
+  },
+  "PHDC": {
+    "signal": "SELL",
+    "price": 8.850000381469727
+  },
+  "SKPC": {
+    "signal": "SELL",
+    "price": 16.450000762939453
+  }
+}
