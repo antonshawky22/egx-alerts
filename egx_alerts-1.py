@@ -126,7 +126,7 @@ for name, ticker in symbols.items():
     # =====================
     if breakout_range and breakout_price and breakout_volume and prev_signal != "BUY":
         section_buy.append(
-            f"🟢 BUY | {name} | Price: {last_price:.2f} | {last_candle_date}"
+            f"🟢 BUY | {name} |{last_price:.2f} |{last_candle_date}"
         )
         new_signals[name] = {"signal": "BUY", "price": float(last_price), "stop_loss": float(stop_loss), "target": float(target)}
 
