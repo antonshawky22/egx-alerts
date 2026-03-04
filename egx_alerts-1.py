@@ -122,7 +122,7 @@ for name, ticker in symbols.items():
 
     # ---- BUY ----
     breakout_range = (last_high - last_low) / last_low < 0.45
-    breakout_price = last_price >= 0.25 * last_high
+    breakout_price = last_price <= last_low + 0.25 * (last_high - last_low)
     breakout_volume = last_vol5 > VOLUME_MULTIPLIER * last_vol20
 
     if breakout_range and breakout_price and breakout_volume:
