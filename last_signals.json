@@ -24,8 +24,9 @@
     "price": 20.06999969482422
   },
   "ABUK": {
-    "signal": "SELL",
-    "price": 67.80000305175781
+    "signal": "BUY",
+    "price": 77.88999938964844,
+    "stop_loss": 62.0099983215332
   },
   "OIH": {
     "signal": "SELL",
@@ -68,8 +69,9 @@
     "price": 5.420000076293945
   },
   "EEII": {
-    "signal": "SELL",
-    "price": 1.6799999475479126
+    "signal": "BUY",
+    "price": 1.7200000286102295,
+    "stop_loss": 1.600000023841858
   },
   "MPCO": {
     "signal": "SELL",
@@ -88,8 +90,9 @@
     "price": 24.790000915527344
   },
   "AMOC": {
-    "signal": "SELL",
-    "price": 7.039999961853027
+    "signal": "BUY",
+    "price": 7.389999866485596,
+    "stop_loss": 6.789999961853027
   },
   "FWRY": {
     "signal": "SELL",
@@ -108,12 +111,21 @@
     "price": 8.850000381469727
   },
   "MCQE": {
-    "signal": "BUY",
-    "price": 196.61000061035156,
-    "stop_loss": 171.0
+    "signal": "SELL",
+    "price": 190.0
   },
   "SKPC": {
+    "signal": "BUY",
+    "price": 17.110000610351562,
+    "stop_loss": 15.3100004196167
+  },
+  "ISPH": {
     "signal": "SELL",
-    "price": 16.450000762939453
+    "price": 11.3100004196167
+  },
+  "EGAL": {
+    "signal": "BUY",
+    "price": 252.0,
+    "stop_loss": 212.0
   }
 }
