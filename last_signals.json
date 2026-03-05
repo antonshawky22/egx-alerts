@@ -99,5 +99,13 @@
   "MCQE": {
     "signal": "SELL",
     "price": 190.0
+  },
+  "JUFO": {
+    "signal": "SELL",
+    "price": 26.5
+  },
+  "RMDA": {
+    "signal": "SELL",
+    "price": 4.570000171661377
   }
 }
