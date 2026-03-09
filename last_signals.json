@@ -108,5 +108,13 @@
   "RMDA": {
     "signal": "SELL",
     "price": 4.570000171661377
+  },
+  "EMFD": {
+    "signal": "SELL",
+    "price": 9.109999656677246
+  },
+  "EGAL": {
+    "signal": "SELL",
+    "price": 302.8500061035156
   }
 }
