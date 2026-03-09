@@ -147,7 +147,7 @@ for name, ticker in symbols.items():
 
     if current_signal == "BUY":
         section_buy.append(
-            f"🟢 BUY | {name} | {last_price:.2f} | {last_candle_date}"
+            f"🟢 BUY | {name} |{last_price:.2f} |{last_candle_date}"
         )
         new_signals[name] = {
             "signal": "BUY",
@@ -178,7 +178,7 @@ if section_sell:
     alerts.extend(["- " + s for s in section_sell])
 
 if not section_buy and not section_sell:
-    alerts.append(f"ℹ️ No new signal Breakout | Last candle: {last_candle_date}")
+    alerts.append(f"ℹ️ No new signal Breakout | {last_candle_date}")
 
 if data_failures:
     alerts.append("\n⚠️ Failed to fetch data:")
