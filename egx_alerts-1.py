@@ -167,7 +167,7 @@ for name, ticker in symbols.items():
 # =====================
 # Build message
 # =====================
-alerts = ["🚦 EGX Signals:\n"]
+alerts = ["🚦 Breakout:\n"]
 
 if section_buy:
     alerts.append("↗️ BUY:")
@@ -178,7 +178,7 @@ if section_sell:
     alerts.extend(["- " + s for s in section_sell])
 
 if not section_buy and not section_sell:
-    alerts.append(f"ℹ️ No new signal | Last candle: {last_candle_date}")
+    alerts.append(f"ℹ️ No new signal Breakout | Last candle: {last_candle_date}")
 
 if data_failures:
     alerts.append("\n⚠️ Failed to fetch data:")
