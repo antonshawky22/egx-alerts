@@ -170,11 +170,11 @@ for name, ticker in symbols.items():
 alerts = ["🚦 Breakout:\n"]
 
 if section_buy:
-    alerts.append("↗️ BUY:")
+    alerts.append("↗️:")
     alerts.extend(["- " + s for s in section_buy])
 
 if section_sell:
-    alerts.append("\n🔻 SELL:")
+    alerts.append("\n🔻:")
     alerts.extend(["- " + s for s in section_sell])
 
 if not section_buy and not section_sell:
