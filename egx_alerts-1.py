@@ -53,10 +53,10 @@ new_signals = last_signals.copy()
 # =====================
 # Strategy parameters
 # =====================
-LOOKBACK = 30
+LOOKBACK = 35
 BREAKOUT_WINDOW = 30
-STOP_LOOKBACK = 15
-VOLUME_MULTIPLIER = 1.1
+STOP_LOOKBACK = 18
+VOLUME_MULTIPLIER = 1.18
 
 section_buy = []
 section_sell = []
@@ -133,7 +133,7 @@ for name, ticker in symbols.items():
     ema_val = ema3.iloc[-1]
 
     if not pd.isna(rsi_val) and not pd.isna(ema_val):
-        if (last_price <= stop_loss) or (rsi_val >= 80) or (last_price < ema_val):
+        if (last_price <= stop_loss) or (rsi_val >= 82) or (last_price < ema_val):
             current_signal = "SELL"
 
     # =====================
