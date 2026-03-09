@@ -1,1 +1,78 @@
-{}
+{
+  "OLFI": {
+    "signal": "SELL",
+    "price": 21.510000228881836
+  },
+  "EMFD": {
+    "signal": "SELL",
+    "price": 9.109999656677246
+  },
+  "ETEL": {
+    "signal": "SELL",
+    "price": 86.0
+  },
+  "EAST": {
+    "signal": "SELL",
+    "price": 37.88999938964844
+  },
+  "ISPH": {
+    "signal": "SELL",
+    "price": 10.819999694824219
+  },
+  "MTIE": {
+    "signal": "SELL",
+    "price": 7.590000152587891
+  },
+  "HRHO": {
+    "signal": "SELL",
+    "price": 26.010000228881836
+  },
+  "JUFO": {
+    "signal": "SELL",
+    "price": 26.5
+  },
+  "RMDA": {
+    "signal": "SELL",
+    "price": 4.400000095367432
+  },
+  "RAYA": {
+    "signal": "SELL",
+    "price": 5.369999885559082
+  },
+  "GBCO": {
+    "signal": "SELL",
+    "price": 25.690000534057617
+  },
+  "TMGH": {
+    "signal": "SELL",
+    "price": 77.88999938964844
+  },
+  "ORHD": {
+    "signal": "SELL",
+    "price": 24.200000762939453
+  },
+  "FWRY": {
+    "signal": "SELL",
+    "price": 17.479999542236328
+  },
+  "COMI": {
+    "signal": "SELL",
+    "price": 121.91000366210938
+  },
+  "ADIB": {
+    "signal": "SELL",
+    "price": 37.689998626708984
+  },
+  "PHDC": {
+    "signal": "SELL",
+    "price": 8.75
+  },
+  "MCQE": {
+    "signal": "SELL",
+    "price": 185.1999969482422
+  },
+  "EGAL": {
+    "signal": "SELL",
+    "price": 302.8500061035156
+  }
+}
