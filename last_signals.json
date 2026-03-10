@@ -74,5 +74,9 @@
   "EGAL": {
     "signal": "SELL",
     "price": 302.8500061035156
+  },
+  "EFIH": {
+    "signal": "SELL",
+    "price": 18.600000381469727
   }
 }
