@@ -52,13 +52,13 @@ data_failures = []
 # =====================
 # Strategy parameters
 # =====================
-EMA_PERIOD = 320
+EMA_PERIOD = 20
 RSI_PERIOD = 14
-RSI_BUY_LOW = 27
-RSI_BUY_HIGH = 40
+RSI_BUY_LOW = 40
+RSI_BUY_HIGH = 60
 RSI_REDUCE = 70
 RSI_SELL = 83
-PRICE_ABOVE_EMA_MAX = 0.12  # 12%
+PRICE_ABOVE_EMA_MAX = 0.20  # 12%
 
 # =====================
 # Functions
