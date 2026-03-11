@@ -1,13 +1,12 @@
-print("EGX ALERTS - Pre-Breakout (Final Stable State Machine)")
-
 import yfinance as yf
 import requests
 import os
 import json
 import pandas as pd
+from datetime import datetime, timedelta
 
 # =====================
-# Telegram
+# Telegram settings
 # =====================
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
@@ -20,10 +19,10 @@ def send_telegram(text):
     try:
         requests.post(url, data={"chat_id": CHAT_ID, "text": text}, timeout=10)
     except Exception as e:
-        print("Telegram error:", e)
+        print("Telegram send failed:", e)
 
 # =====================
-# FULL EGX SYMBOL LIST
+# EGX symbols
 # =====================
 symbols = {
     "OFH":"OFH.CA","OLFI":"OLFI.CA","EMFD":"EMFD.CA","ETEL":"ETEL.CA",
@@ -38,156 +37,121 @@ symbols = {
 }
 
 # =====================
-# Load last signals
+# Signals file
 # =====================
 SIGNALS_FILE = "last_signals.json"
-
 try:
     with open(SIGNALS_FILE, "r") as f:
         last_signals = json.load(f)
 except:
     last_signals = {}
 
-new_signals = last_signals.copy()
+new_signals = {}
+data_failures = []
 
 # =====================
 # Strategy parameters
 # =====================
-LOOKBACK = 35
-BREAKOUT_WINDOW = 30
-STOP_LOOKBACK = 18
-VOLUME_MULTIPLIER = 1.18
-
-section_buy = []
-section_sell = []
-data_failures = []
-last_candle_date = None
+EMA_PERIOD = 120
+RSI_PERIOD = 14
+RSI_BUY_LOW = 27
+RSI_BUY_HIGH = 40
+RSI_REDUCE = 70
+RSI_SELL = 83
+PRICE_ABOVE_EMA_MAX = 0.12  # 12%
 
 # =====================
-# Fetch data
+# Functions
 # =====================
-def fetch_data(ticker):
+def EMA(series, period):
+    return series.ewm(span=period, adjust=False).mean()
+
+def RSI(series, period):
+    delta = series.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.rolling(period).mean()
+    avg_loss = loss.rolling(period).mean()
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+# =====================
+# Main loop
+# =====================
+for symbol, ticker in symbols.items():
     try:
-        df = yf.download(ticker, period="6mo", interval="1d", auto_adjust=True, progress=False)
-        if df is None or df.empty:
-            return None
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        return df
-    except:
-        return None
+        data = yf.download(ticker, period="6mo", interval="1d")
+        if data.empty:
+            data_failures.append(symbol)
+            continue
+        
+        data['EMA120'] = EMA(data['Close'], EMA_PERIOD)
+        data['RSI14'] = RSI(data['Close'], RSI_PERIOD)
+        
+        latest_idx = data.index[-1]
+        price = data['Close'][-1]
+        ema120_today = data['EMA120'][-1]
+        ema120_5days_ago = data['EMA120'][-6]
+        rsi_now = data['RSI14'][-1]
+        
+        # Check trend
+        ema_slope_up = ema120_today > ema120_5days_ago
+        price_ok = price <= ema120_today * (1 + PRICE_ABOVE_EMA_MAX)
+        rsi_buy_zone = RSI_BUY_LOW <= rsi_now <= RSI_BUY_HIGH
+        
+        if ema_slope_up and price_ok and rsi_buy_zone:
+            # Calculate stop loss: lowest 5 days before today
+            stop_loss = data['Close'][-6:-1].min()
+            
+            # Check last signals to avoid duplicates
+            if symbol not in last_signals or last_signals[symbol]['date'] != str(latest_idx.date()):
+                # Determine reduce & full sell days
+                reduce_sell_day = None
+                full_sell_day = None
+                for j in range(len(data)-EMA_PERIOD, len(data)):
+                    if reduce_sell_day is None and data['RSI14'].iloc[j] > RSI_REDUCE:
+                        reduce_sell_day = data.index[j].date()
+                    if full_sell_day is None and data['RSI14'].iloc[j] > RSI_SELL:
+                        full_sell_day = data.index[j].date()
+                        break
+                
+                new_signals[symbol] = {
+                    "price": round(price,2),
+                    "stop_loss": round(stop_loss,2),
+                    "reduce_sell_day": str(reduce_sell_day) if reduce_sell_day else "N/A",
+                    "full_sell_day": str(full_sell_day) if full_sell_day else "N/A",
+                    "date": str(latest_idx.date())
+                }
+                
+    except Exception as e:
+        data_failures.append(symbol)
+        print(f"Failed for {symbol}: {e}")
 
 # =====================
-# MAIN LOOP
+# Prepare Telegram message
 # =====================
-for name, ticker in symbols.items():
+if new_signals:
+    msg_lines = []
+    for sym, info in new_signals.items():
+        line = f"🟢 {sym} | {info['price']} | {info['date']}  🚨 StopLoss: {info['stop_loss']}"
+        line += f"  🟠 Reduce Sell: {info['reduce_sell_day']}  🔴 Full Sell: {info['full_sell_day']}"
+        msg_lines.append(line)
+    message = "\n".join(msg_lines)
+else:
+    message = f"No new signal – last candle date {str(latest_idx.date())}"
 
-    df = fetch_data(ticker)
-    if df is None or len(df) < LOOKBACK:
-        data_failures.append(name)
-        continue
-
-    last_candle_date = df.index[-1].date()
-
-    close = df["Close"]
-    high = df["High"]
-    low = df["Low"]
-    volume = df["Volume"]
-
-    last_price = close.iloc[-1]
-
-    # ===== Indicators =====
-    highest_high = high.rolling(BREAKOUT_WINDOW).max()
-    lowest_low = low.rolling(BREAKOUT_WINDOW).min()
-
-    stop_loss = low.rolling(STOP_LOOKBACK).min().iloc[-1]
-
-    rsi14 = 100 - (100 / (1 + ((close.diff().clip(lower=0).rolling(14).mean()) /
-                               (close.diff().clip(upper=0).abs().rolling(14).mean()))))
-
-    ema3 = close.ewm(span=3, adjust=False).mean()
-
-    last_high = highest_high.iloc[-1]
-    last_low = lowest_low.iloc[-1]
-
-    vol_avg5 = volume.rolling(5).mean()
-    vol_avg20 = volume.rolling(20).mean()
-    last_vol5 = vol_avg5.iloc[-1]
-    last_vol20 = vol_avg20.iloc[-1]
-
-    # =====================
-    # Calculate CURRENT signal
-    # =====================
-    current_signal = None
-
-    # ---- BUY ----
-    breakout_range = (last_high - last_low) / last_low < 0.45
-    breakout_price = last_price <= last_low + 0.25 * (last_high - last_low)
-    breakout_volume = last_vol5 > VOLUME_MULTIPLIER * last_vol20
-
-    if breakout_range and breakout_price and breakout_volume:
-        current_signal = "BUY"
-
-    # ---- SELL ----
-    rsi_val = rsi14.iloc[-1]
-    ema_val = ema3.iloc[-1]
-
-    if not pd.isna(rsi_val) and not pd.isna(ema_val):
-        if (last_price <= stop_loss) or (rsi_val >= 82) or (last_price < ema_val):
-            current_signal = "SELL"
-
-    # =====================
-    # Compare with previous state
-    # =====================
-    prev_data = last_signals.get(name, {})
-    prev_signal = prev_data.get("signal")
-
-    if current_signal == prev_signal:
-        continue
-
-    if current_signal == "BUY":
-        section_buy.append(
-            f"🟢 BUY | {name} |{last_price:.2f} |{last_candle_date}"
-        )
-        new_signals[name] = {
-            "signal": "BUY",
-            "price": float(last_price),
-            "stop_loss": float(stop_loss)
-        }
-
-    elif current_signal == "SELL":
-        section_sell.append(
-            f"🔴 SELL | {name} | {last_price:.2f} | {last_candle_date}"
-        )
-        new_signals[name] = {
-            "signal": "SELL",
-            "price": float(last_price)
-        }
+send_telegram(message)
 
 # =====================
-# Build message
+# Save last signals
 # =====================
-alerts = ["🚦 Breakout:\n"]
-
-if section_buy:
-    alerts.append("↗️:")
-    alerts.extend(["- " + s for s in section_buy])
-
-if section_sell:
-    alerts.append("\n🔻:")
-    alerts.extend(["- " + s for s in section_sell])
-
-if not section_buy and not section_sell:
-    alerts.append(f"ℹ️ No new signal | {last_candle_date}")
-
-if data_failures:
-    alerts.append("\n⚠️ Failed to fetch data:")
-    alerts.extend(["- " + s for s in data_failures])
-
-# =====================
-# Save state
-# =====================
+last_signals.update(new_signals)
 with open(SIGNALS_FILE, "w") as f:
-    json.dump(new_signals, f, indent=2, ensure_ascii=False)
+    json.dump(last_signals, f, indent=2)
 
-send_telegram("\n".join(alerts))
+# =====================
+# Data failures report
+# =====================
+if data_failures:
+    print("Data fetch failed for:", ", ".join(data_failures))
