@@ -28,8 +28,9 @@
     "price": 26.010000228881836
   },
   "JUFO": {
-    "signal": "SELL",
-    "price": 26.5
+    "signal": "BUY",
+    "price": 26.579999923706055,
+    "stop_loss": 25.0
   },
   "RMDA": {
     "signal": "SELL",
@@ -40,20 +41,23 @@
     "price": 5.369999885559082
   },
   "GBCO": {
-    "signal": "SELL",
-    "price": 25.690000534057617
+    "signal": "BUY",
+    "price": 25.899999618530273,
+    "stop_loss": 23.950000762939453
   },
   "TMGH": {
-    "signal": "SELL",
-    "price": 77.88999938964844
+    "signal": "BUY",
+    "price": 79.80000305175781,
+    "stop_loss": 74.5
   },
   "ORHD": {
     "signal": "SELL",
     "price": 24.200000762939453
   },
   "FWRY": {
-    "signal": "SELL",
-    "price": 17.479999542236328
+    "signal": "BUY",
+    "price": 17.899999618530273,
+    "stop_loss": 16.809999465942383
   },
   "COMI": {
     "signal": "SELL",
@@ -78,5 +82,17 @@
   "EFIH": {
     "signal": "SELL",
     "price": 18.600000381469727
+  },
+  "ABUK": {
+    "signal": "SELL",
+    "price": 79.9000015258789
+  },
+  "AMOC": {
+    "signal": "SELL",
+    "price": 8.569999694824219
+  },
+  "SKPC": {
+    "signal": "SELL",
+    "price": 18.010000228881836
   }
 }
