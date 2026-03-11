@@ -3,7 +3,7 @@ import requests
 import os
 import json
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # =====================
 # Telegram settings
@@ -93,10 +93,11 @@ for symbol, ticker in symbols.items():
             stop_loss = data['Close'].iloc[i-5:i].min()  # أقل قاع 5 أيام
             
             if RSI_BUY_LOW <= rsi_now <= RSI_BUY_HIGH:
+                # منع تكرار الإشارة لنفس اليوم
                 if symbol not in last_signals or last_signals[symbol]['date'] != str(data.index[i].date()):
                     new_signals[symbol] = {
-                        "price": round(price,2),
-                        "stop_loss": round(stop_loss,2),
+                        "price": float(price),
+                        "stop_loss": float(stop_loss),
                         "date": str(data.index[i].date())
                     }
                     break  # إشارة واحدة كافية لكل سهم
@@ -111,7 +112,7 @@ for symbol, ticker in symbols.items():
 if new_signals:
     msg_lines = []
     for sym, info in new_signals.items():
-        line = f"🟢 {sym} | {info['price']} | {info['date']}  🚨 StopLoss: {info['stop_loss']}"
+        line = f"🟢 {sym} | {info['price']:.2f} | {info['date']}  🚨 StopLoss: {info['stop_loss']:.2f}"
         msg_lines.append(line)
     message = "\n".join(msg_lines)
 else:
