@@ -1,41 +1,13 @@
 import yfinance as yf
 import pandas as pd
-import requests
-import os
 
-# =====================
-# Telegram
-# =====================
-TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-
-def send_telegram(msg):
-    if not TOKEN or not CHAT_ID:
-        print(msg)
-        return
-
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
-
-
-# =====================
-# EGX symbols (عينة صغيرة للتجربة)
-# =====================
 symbols = {
 "OFH":"OFH.CA",
 "ETEL":"ETEL.CA",
 "EAST":"EAST.CA",
-"OIH":"OIH.CA",
-"SWDY":"SWDY.CA",
-"MTIE":"MTIE.CA",
-"RMDA":"RMDA.CA",
-"RAYA":"RAYA.CA"
+"OIH":"OIH.CA"
 }
 
-
-# =====================
-# RSI function
-# =====================
 def RSI(series, period=14):
 
     delta = series.diff()
@@ -53,54 +25,27 @@ def RSI(series, period=14):
     return rsi
 
 
-signals = []
+for symbol,ticker in symbols.items():
 
-# =====================
-# Scan stocks
-# =====================
-for symbol, ticker in symbols.items():
+    print("\n==========")
+    print(symbol)
 
-    try:
+    data = yf.download(
+        ticker,
+        period="6mo",
+        interval="1d",
+        progress=False
+    )
 
-        data = yf.download(
-            ticker,
-            period="6mo",
-            interval="1d",
-            progress=False
-        )
+    print("Rows:",len(data))
 
-        if data.empty:
-            continue
+    if data.empty:
+        print("No data")
+        continue
 
-        close = data["Close"]
+    close = data["Close"]
 
-        data["RSI"] = RSI(close)
+    data["RSI"] = RSI(close)
 
-        price = float(close.iloc[-1])
-        rsi_now = float(data["RSI"].iloc[-1])
-
-        # شرط تجريبى سهل
-        if rsi_now < 60:
-
-            signals.append(
-                f"🟢 {symbol} | Price {price:.2f} | RSI {rsi_now:.1f}"
-            )
-
-    except Exception as e:
-        print(symbol, "error", e)
-
-
-# =====================
-# Send result
-# =====================
-if signals:
-
-    message = "📊 EGX Test Signals\n\n"
-    message += "\n".join(signals)
-
-else:
-
-    message = "No signals found"
-
-
-send_telegram(message)
+    print("Last price:", close.iloc[-1])
+    print("Last RSI:", data["RSI"].iloc[-1])
