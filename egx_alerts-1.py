@@ -116,7 +116,7 @@ for name, ticker in symbols.items():
 
     df = fetch_data(ticker)
 
-    if df is None or len(df) < 150:
+    if df is None or len(df) < 120:
         data_failures.append(name)
         continue
 
