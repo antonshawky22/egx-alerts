@@ -5,6 +5,7 @@ import requests
 import os
 import json
 import pandas as pd
+import time
 
 # =====================
 # Telegram settings
@@ -16,9 +17,15 @@ def send_telegram(text):
     if not TOKEN or not CHAT_ID:
         print("Telegram credentials not set")
         return
+
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+
     try:
-        requests.post(url, data={"chat_id": CHAT_ID, "text": text}, timeout=10)
+        requests.post(
+            url,
+            data={"chat_id": CHAT_ID, "text": text},
+            timeout=10
+        )
     except Exception as e:
         print("Telegram send failed:", e)
 
@@ -49,16 +56,27 @@ except:
     last_signals = {}
 
 new_signals = last_signals.copy()
-data_failures = []
+
 alerts = []
+data_failures = []
+
 last_candle_date = None
 
 # =====================
-# Helpers
+# Fetch Data
 # =====================
 def fetch_data(ticker):
+
     try:
-        df = yf.download(ticker, period="6mo", interval="1d", auto_adjust=True, progress=False)
+
+        df = yf.download(
+            ticker,
+            period="6mo",
+            interval="1d",
+            auto_adjust=True,
+            progress=False,
+            threads=False
+        )
 
         if df is None or df.empty:
             return None
@@ -68,10 +86,13 @@ def fetch_data(ticker):
 
         return df
 
-    except:
+    except Exception as e:
+        print("Data error:", ticker, e)
         return None
 
-
+# =====================
+# RSI
+# =====================
 def rsi(series, period=14):
 
     delta = series.diff()
@@ -87,9 +108,11 @@ def rsi(series, period=14):
     return 100 - (100 / (1 + rs))
 
 # =====================
-# Main Logic
+# Main Scan
 # =====================
 for name, ticker in symbols.items():
+
+    time.sleep(0.8)
 
     df = fetch_data(ticker)
 
@@ -102,6 +125,9 @@ for name, ticker in symbols.items():
     close = df["Close"]
     low = df["Low"]
 
+    # =====================
+    # Indicators
+    # =====================
     df["EMA120"] = close.ewm(span=120, adjust=False).mean()
     df["RSI14"] = rsi(close, 14)
 
@@ -110,23 +136,19 @@ for name, ticker in symbols.items():
     prev_state = last_signals.get(name)
 
     # =====================
-    # Trend condition
+    # Strategy Conditions
     # =====================
+
+    # اتجاه EMA
     ema_up = last["EMA120"] > df["EMA120"].iloc[-6]
 
-    # =====================
-    # Price distance
-    # =====================
+    # السعر لا يبتعد أكثر من 12%
     price_ok = last["Close"] <= last["EMA120"] * 1.12
 
-    # =====================
-    # RSI buy zone
-    # =====================
+    # منطقة RSI
     rsi_buy = 27 <= last["RSI14"] <= 40
 
-    # =====================
-    # Signals
-    # =====================
+    # إشارات
     buy_signal = ema_up and price_ok and rsi_buy
 
     partial_sell = last["RSI14"] > 70
@@ -146,6 +168,9 @@ for name, ticker in symbols.items():
     else:
         continue
 
+    # =====================
+    # Prevent repeat signals
+    # =====================
     if state != prev_state:
 
         if state == "BUY":
@@ -178,15 +203,14 @@ for name, ticker in symbols.items():
 
         new_signals[name] = state
 
-
 # =====================
-# Save signals
+# Save Signals
 # =====================
 with open(SIGNALS_FILE, "w") as f:
     json.dump(new_signals, f)
 
 # =====================
-# Send alerts
+# Telegram Output
 # =====================
 if alerts:
 
@@ -206,4 +230,4 @@ if data_failures:
     send_telegram(
         "⚠️ Failed to fetch data:\n" +
         ", ".join(data_failures)
-                        )
+    )
