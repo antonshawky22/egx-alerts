@@ -50,15 +50,13 @@ new_signals = {}
 data_failures = []
 
 # =====================
-# Strategy parameters
+# Strategy parameters for experiment
 # =====================
-EMA_PERIOD = 20
+EMA_PERIOD = 20      # لتجربة أسرع
 RSI_PERIOD = 14
-RSI_BUY_LOW = 40
+RSI_BUY_LOW = 40     # وسعنا منطقة الشراء
 RSI_BUY_HIGH = 60
-RSI_REDUCE = 70
-RSI_SELL = 83
-PRICE_ABOVE_EMA_MAX = 0.20  # 12%
+PRICE_ABOVE_EMA_MAX = 0.20  # السماح للسعر أعلى EMA
 
 # =====================
 # Functions
@@ -77,7 +75,7 @@ def RSI(series, period):
     return rsi
 
 # =====================
-# Main loop
+# Main loop – check last 5 days for experiment
 # =====================
 for symbol, ticker in symbols.items():
     try:
@@ -86,44 +84,23 @@ for symbol, ticker in symbols.items():
             data_failures.append(symbol)
             continue
         
-        data['EMA120'] = EMA(data['Close'], EMA_PERIOD)
-        data['RSI14'] = RSI(data['Close'], RSI_PERIOD)
+        data['EMA'] = EMA(data['Close'], EMA_PERIOD)
+        data['RSI'] = RSI(data['Close'], RSI_PERIOD)
         
-        latest_idx = data.index[-1]
-        price = data['Close'][-1]
-        ema120_today = data['EMA120'][-1]
-        ema120_5days_ago = data['EMA120'][-6]
-        rsi_now = data['RSI14'][-1]
-        
-        # Check trend
-        ema_slope_up = ema120_today > ema120_5days_ago
-        price_ok = price <= ema120_today * (1 + PRICE_ABOVE_EMA_MAX)
-        rsi_buy_zone = RSI_BUY_LOW <= rsi_now <= RSI_BUY_HIGH
-        
-        if ema_slope_up and price_ok and rsi_buy_zone:
-            # Calculate stop loss: lowest 5 days before today
-            stop_loss = data['Close'][-6:-1].min()
+        for i in range(-5, 0):  # آخر 5 أيام
+            price = data['Close'].iloc[i]
+            rsi_now = data['RSI'].iloc[i]
+            stop_loss = data['Close'].iloc[i-5:i].min()  # أقل قاع 5 أيام
             
-            # Check last signals to avoid duplicates
-            if symbol not in last_signals or last_signals[symbol]['date'] != str(latest_idx.date()):
-                # Determine reduce & full sell days
-                reduce_sell_day = None
-                full_sell_day = None
-                for j in range(len(data)-EMA_PERIOD, len(data)):
-                    if reduce_sell_day is None and data['RSI14'].iloc[j] > RSI_REDUCE:
-                        reduce_sell_day = data.index[j].date()
-                    if full_sell_day is None and data['RSI14'].iloc[j] > RSI_SELL:
-                        full_sell_day = data.index[j].date()
-                        break
-                
-                new_signals[symbol] = {
-                    "price": round(price,2),
-                    "stop_loss": round(stop_loss,2),
-                    "reduce_sell_day": str(reduce_sell_day) if reduce_sell_day else "N/A",
-                    "full_sell_day": str(full_sell_day) if full_sell_day else "N/A",
-                    "date": str(latest_idx.date())
-                }
-                
+            if RSI_BUY_LOW <= rsi_now <= RSI_BUY_HIGH:
+                if symbol not in last_signals or last_signals[symbol]['date'] != str(data.index[i].date()):
+                    new_signals[symbol] = {
+                        "price": round(price,2),
+                        "stop_loss": round(stop_loss,2),
+                        "date": str(data.index[i].date())
+                    }
+                    break  # إشارة واحدة كافية لكل سهم
+
     except Exception as e:
         data_failures.append(symbol)
         print(f"Failed for {symbol}: {e}")
@@ -135,11 +112,10 @@ if new_signals:
     msg_lines = []
     for sym, info in new_signals.items():
         line = f"🟢 {sym} | {info['price']} | {info['date']}  🚨 StopLoss: {info['stop_loss']}"
-        line += f"  🟠 Reduce Sell: {info['reduce_sell_day']}  🔴 Full Sell: {info['full_sell_day']}"
         msg_lines.append(line)
     message = "\n".join(msg_lines)
 else:
-    message = f"No new signal – last candle date {str(latest_idx.date())}"
+    message = f"No new signal – last 5 days checked"
 
 send_telegram(message)
 
