@@ -1,7 +1,11 @@
+print("EGX ALERTS - EMA120 Pullback Strategy")
+
 import yfinance as yf
-import pandas as pd
 import requests
 import os
+import json
+import pandas as pd
+import time
 
 # =====================
 # Telegram settings
@@ -9,13 +13,19 @@ import os
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-def send_telegram(message):
+def send_telegram(text):
     if not TOKEN or not CHAT_ID:
         print("Telegram credentials not set")
         return
+
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+
     try:
-        requests.post(url, data={"chat_id": CHAT_ID, "text": message}, timeout=10)
+        requests.post(
+            url,
+            data={"chat_id": CHAT_ID, "text": text},
+            timeout=10
+        )
     except Exception as e:
         print("Telegram send failed:", e)
 
@@ -35,57 +45,189 @@ symbols = {
 }
 
 # =====================
-# EMA periods
+# Load last signals
 # =====================
-ema_periods = [120, 150, 200]
+SIGNALS_FILE = "last_signals.json"
 
-# =====================
-# Function to calculate EMA
-# =====================
-def ema(series, period):
-    return series.ewm(span=period, adjust=False).mean()
+try:
+    with open(SIGNALS_FILE, "r") as f:
+        last_signals = json.load(f)
+except:
+    last_signals = {}
 
-# =====================
-# Collect results
-# =====================
-messages = []
+new_signals = last_signals.copy()
+
+alerts = []
 data_failures = []
 
-for name, ticker in symbols.items():
+last_candle_date = None
+
+# =====================
+# Fetch Data
+# =====================
+def fetch_data(ticker):
+
     try:
-        df = yf.download(ticker, period="1y", interval="1d", auto_adjust=True, progress=False)
+
+        df = yf.download(
+            ticker,
+            period="6mo",
+            interval="1d",
+            auto_adjust=True,
+            progress=False,
+            threads=False
+        )
+
         if df is None or df.empty:
-            data_failures.append(ticker)
-            continue
+            return None
 
-        close = df["Close"]
-        msg = f"📊 {name} ({ticker}):\n"
-        for period in ema_periods:
-            if len(close) < period:
-                msg += f"⚠️ Not enough data for EMA{period} ({len(close)} days)\n"
-            else:
-                df[f"EMA{period}"] = ema(close, period)
-                msg += f"✅ EMA{period}: {df[f'EMA{period}'].iloc[-1]:.2f}\n"
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
 
-        messages.append(msg)
+        return df
 
     except Exception as e:
-        data_failures.append(ticker)
-        messages.append(f"❌ Error fetching {ticker}: {e}")
+        print("Data error:", ticker, e)
+        return None
 
 # =====================
-# Prepare Telegram message
+# RSI
 # =====================
-final_message = "🚨 EGX EMA Test Scan\n\n"
+def rsi(series, period=14):
 
-if messages:
-    final_message += "\n".join(messages)
+    delta = series.diff()
+
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+
+    avg_gain = gain.ewm(alpha=1/period, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1/period, adjust=False).mean()
+
+    rs = avg_gain / avg_loss
+
+    return 100 - (100 / (1 + rs))
+
+# =====================
+# Main Scan
+# =====================
+for name, ticker in symbols.items():
+
+    time.sleep(0.8)
+
+    df = fetch_data(ticker)
+
+    if df is None or len(df) < 120:
+        data_failures.append(name)
+        continue
+
+    last_candle_date = df.index[-1].date()
+
+    close = df["Close"]
+    low = df["Low"]
+
+    # =====================
+    # Indicators
+    # =====================
+    df["EMA120"] = close.ewm(span=120, adjust=False).mean()
+    df["RSI14"] = rsi(close, 14)
+
+    last = df.iloc[-1]
+
+    prev_state = last_signals.get(name)
+
+    # =====================
+    # Strategy Conditions
+    # =====================
+
+    # اتجاه EMA
+    ema_up = last["EMA120"] > df["EMA120"].iloc[-6]
+
+    # السعر لا يبتعد أكثر من 12%
+    price_ok = last["Close"] <= last["EMA120"] * 1.12
+
+    # منطقة RSI
+    rsi_buy = 27 <= last["RSI14"] <= 40
+
+    # إشارات
+    buy_signal = ema_up and price_ok and rsi_buy
+
+    partial_sell = last["RSI14"] > 70
+    full_sell = last["RSI14"] > 83
+
+    stop_loss = low.iloc[-6:-1].min()
+
+    if buy_signal:
+        state = "BUY"
+
+    elif full_sell:
+        state = "SELL"
+
+    elif partial_sell:
+        state = "PARTIAL"
+
+    else:
+        continue
+
+    # =====================
+    # Prevent repeat signals
+    # =====================
+    if state != prev_state:
+
+        if state == "BUY":
+
+            alerts.append(
+                f"🟢 BUY | {name}\n"
+                f"Price: {last['Close']:.2f}\n"
+                f"Stop: {stop_loss:.2f}\n"
+                f"RSI: {last['RSI14']:.1f}\n"
+                f"Date: {last_candle_date}"
+            )
+
+        elif state == "PARTIAL":
+
+            alerts.append(
+                f"🟡 PARTIAL SELL | {name}\n"
+                f"Price: {last['Close']:.2f}\n"
+                f"RSI: {last['RSI14']:.1f}\n"
+                f"Date: {last_candle_date}"
+            )
+
+        elif state == "SELL":
+
+            alerts.append(
+                f"🔴 FULL SELL | {name}\n"
+                f"Price: {last['Close']:.2f}\n"
+                f"RSI: {last['RSI14']:.1f}\n"
+                f"Date: {last_candle_date}"
+            )
+
+        new_signals[name] = state
+
+# =====================
+# Save Signals
+# =====================
+with open(SIGNALS_FILE, "w") as f:
+    json.dump(new_signals, f)
+
+# =====================
+# Telegram Output
+# =====================
+if alerts:
+
+    send_telegram(
+        "🚨 EGX EMA120 Pullback Signals\n\n" +
+        "\n\n".join(alerts)
+    )
+
+else:
+
+    send_telegram(
+        f"ℹ️ No new signals\nLast candle: {last_candle_date}"
+    )
 
 if data_failures:
-    final_message += "\n⚠️ Failed to fetch data:\n" + ", ".join(data_failures)
 
-# =====================
-# Send Telegram
-# =====================
-send_telegram(final_message)
-print(final_message)
+    send_telegram(
+        "⚠️ Failed to fetch data:\n" +
+        ", ".join(data_failures)
+    )
