@@ -16,8 +16,9 @@
     "price": 37.88999938964844
   },
   "ISPH": {
-    "signal": "SELL",
-    "price": 10.819999694824219
+    "signal": "BUY",
+    "price": 10.670000076293945,
+    "stop_loss": 10.300000190734863
   },
   "MTIE": {
     "signal": "SELL",
@@ -28,9 +29,8 @@
     "price": 26.010000228881836
   },
   "JUFO": {
-    "signal": "BUY",
-    "price": 26.579999923706055,
-    "stop_loss": 25.0
+    "signal": "SELL",
+    "price": 26.510000228881836
   },
   "RMDA": {
     "signal": "SELL",
@@ -55,9 +55,8 @@
     "price": 24.200000762939453
   },
   "FWRY": {
-    "signal": "BUY",
-    "price": 17.899999618530273,
-    "stop_loss": 16.809999465942383
+    "signal": "SELL",
+    "price": 17.399999618530273
   },
   "COMI": {
     "signal": "SELL",
@@ -94,5 +93,13 @@
   "SKPC": {
     "signal": "SELL",
     "price": 18.010000228881836
+  },
+  "ELEC": {
+    "signal": "SELL",
+    "price": 2.1500000953674316
+  },
+  "ORWE": {
+    "signal": "SELL",
+    "price": 22.8700008392334
   }
 }
