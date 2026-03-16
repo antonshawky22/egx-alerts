@@ -268,7 +268,7 @@ else:
 
     send_telegram(
 
-        f"ℹ️ No new signals\nLast candle: {last_candle_date}"
+        f"EGX EMA120 Pullback ℹ️ No new signals\nLast candle: {last_candle_date}"
 
     )
 
