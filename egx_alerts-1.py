@@ -1,4 +1,4 @@
-print("EGX ALERTS - Pre-Breakout (Final Stable State Machine)")
+print("EGX ALERTS - Pre-Breakout (High Quality + Smart Exit)")
 
 import yfinance as yf
 import requests
@@ -53,10 +53,10 @@ new_signals = last_signals.copy()
 # =====================
 # Strategy parameters
 # =====================
-LOOKBACK = 35
-BREAKOUT_WINDOW = 30
-STOP_LOOKBACK = 18
-VOLUME_MULTIPLIER = 1.18
+LOOKBACK = 40
+BREAKOUT_WINDOW = 35
+STOP_LOOKBACK = 25   # أوسع شوية
+VOLUME_MULTIPLIER = 1.30
 
 section_buy = []
 section_sell = []
@@ -105,7 +105,7 @@ for name, ticker in symbols.items():
     rsi14 = 100 - (100 / (1 + ((close.diff().clip(lower=0).rolling(14).mean()) /
                                (close.diff().clip(upper=0).abs().rolling(14).mean()))))
 
-    ema3 = close.ewm(span=3, adjust=False).mean()
+    ema6 = close.ewm(span=6, adjust=False).mean()  # كان EMA3
 
     last_high = highest_high.iloc[-1]
     last_low = lowest_low.iloc[-1]
@@ -121,16 +121,16 @@ for name, ticker in symbols.items():
     current_signal = None
 
     # ---- BUY ----
-    breakout_range = (last_high - last_low) / last_low < 0.45
-    breakout_price = last_price <= last_low + 0.25 * (last_high - last_low)
+    breakout_range = (last_high - last_low) / last_low < 0.35
+    breakout_price = last_price <= last_low + 0.15 * (last_high - last_low)
     breakout_volume = last_vol5 > VOLUME_MULTIPLIER * last_vol20
 
     if breakout_range and breakout_price and breakout_volume:
         current_signal = "BUY"
 
-    # ---- SELL ----
+    # ---- SELL (Smart Exit) ----
     rsi_val = rsi14.iloc[-1]
-    ema_val = ema3.iloc[-1]
+    ema_val = ema6.iloc[-1]
 
     if not pd.isna(rsi_val) and not pd.isna(ema_val):
         if (last_price <= stop_loss) or (rsi_val >= 82) or (last_price < ema_val):
