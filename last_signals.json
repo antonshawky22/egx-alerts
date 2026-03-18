@@ -110,5 +110,9 @@
   "SKPC": {
     "signal": "SELL",
     "price": 17.510000228881836
+  },
+  "SUGR": {
+    "signal": "SELL",
+    "price": 47.5099983215332
   }
 }
