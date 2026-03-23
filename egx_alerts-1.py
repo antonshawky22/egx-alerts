@@ -14,6 +14,7 @@ TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def send_telegram(text):
+
     if not TOKEN or not CHAT_ID:
         print("Telegram credentials not set")
         return
@@ -33,6 +34,7 @@ def send_telegram(text):
 # EGX symbols
 # =====================
 symbols = {
+
     "OFH":"OFH.CA","OLFI":"OLFI.CA","EMFD":"EMFD.CA","ETEL":"ETEL.CA",
     "EAST":"EAST.CA","EFIH":"EFIH.CA","ABUK":"ABUK.CA","OIH":"OIH.CA",
     "SWDY":"SWDY.CA","ISPH":"ISPH.CA","ATQA":"ATQA.CA","MTIE":"MTIE.CA",
@@ -42,6 +44,7 @@ symbols = {
     "TMGH":"TMGH.CA","ORHD":"ORHD.CA","AMOC":"AMOC.CA","FWRY":"FWRY.CA",
     "COMI":"COMI.CA","ADIB":"ADIB.CA","PHDC":"PHDC.CA",
     "MCQE":"MCQE.CA","SKPC":"SKPC.CA","EGAL":"EGAL.CA"
+
 }
 
 # =====================
@@ -68,7 +71,6 @@ last_candle_date = None
 def fetch_data(ticker):
 
     try:
-
         df = yf.download(
             ticker,
             period="6mo",
@@ -138,32 +140,38 @@ for name, ticker in symbols.items():
     # =====================
     # Strategy Conditions
     # =====================
-
-    # اتجاه EMA
     ema_up = last["EMA120"] > df["EMA120"].iloc[-6]
-
-    # السعر لا يبتعد أكثر من 12%
     price_ok = last["Close"] <= last["EMA120"] * 1.12
-
-    # منطقة RSI
     rsi_buy = 27 <= last["RSI14"] <= 40
 
-    # إشارات
-    buy_signal = ema_up and price_ok and rsi_buy
+    # تحسين الستوب (4 شموع)
+    stop_loss = low.iloc[-5:-1].min()
 
+    # =====================
+    # Signals
+    # =====================
+    buy_signal = ema_up and price_ok and rsi_buy
     partial_sell = last["RSI14"] > 70
     full_sell = last["RSI14"] > 83
+    stoploss_hit = last["Close"] < stop_loss
 
-    stop_loss = low.iloc[-6:-1].min()
+    # هل في صفقة؟
+    in_trade = prev_state in ["BUY", "PARTIAL"]
 
-    if buy_signal:
-        state = "BUY"
-
-    elif full_sell:
+    # =====================
+    # Determine state
+    # =====================
+    if full_sell and in_trade:
         state = "SELL"
 
-    elif partial_sell:
+    elif partial_sell and in_trade:
         state = "PARTIAL"
+
+    elif stoploss_hit and in_trade:
+        state = "SELL"
+
+    elif buy_signal:
+        state = "BUY"
 
     else:
         continue
@@ -173,7 +181,20 @@ for name, ticker in symbols.items():
     # =====================
     if state != prev_state:
 
-        if state == "BUY":
+        if stoploss_hit and in_trade:
+
+            break_pct = ((last["Close"] - stop_loss) / stop_loss) * 100
+
+            alerts.append(
+                f"🚨 STOP LOSS | {name}\n"
+                f"Close: {last['Close']:.2f}\n"
+                f"Stop Level: {stop_loss:.2f}\n"
+                f"Break: {break_pct:.2f}%\n"
+                f"RSI: {last['RSI14']:.1f}\n"
+                f"Date: {last_candle_date}"
+            )
+
+        elif state == "BUY":
 
             alerts.append(
                 f"🟢 BUY | {name}\n"
@@ -215,7 +236,7 @@ with open(SIGNALS_FILE, "w") as f:
 if alerts:
 
     send_telegram(
-        "🚨 EGX EMA120 Pullback Signals\n\n" +
+        "📊 EGX EMA120 Pullback Signals\n\n" +
         "\n\n".join(alerts)
     )
 
