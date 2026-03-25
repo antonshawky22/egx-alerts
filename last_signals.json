@@ -118,5 +118,17 @@
   "AMOC": {
     "signal": "SELL",
     "price": 8.770000457763672
+  },
+  "OIH": {
+    "signal": "SELL",
+    "price": 1.2899999618530273
+  },
+  "DSCW": {
+    "signal": "SELL",
+    "price": 1.7699999809265137
+  },
+  "EGAL": {
+    "signal": "SELL",
+    "price": 295.1000061035156
   }
 }
