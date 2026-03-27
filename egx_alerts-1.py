@@ -146,7 +146,7 @@ for name, ticker in symbols.items():
 
     trend_ok = (last["Close"] - last["EMA120"]) / last["EMA120"] > 0.03
 
-    rsi_buy = 27 <= last["RSI14"] <= 40
+    rsi_buy = 45 <= last["RSI14"] <= 65
 
     # تحسين الستوب (4 شموع)
     stop_loss = low.iloc[-5:-1].min()
