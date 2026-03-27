@@ -130,5 +130,9 @@
   "EGAL": {
     "signal": "SELL",
     "price": 295.1000061035156
+  },
+  "ABUK": {
+    "signal": "SELL",
+    "price": 89.0
   }
 }
