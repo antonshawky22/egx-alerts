@@ -30,5 +30,13 @@
   "EEII": {
     "signal": "SELL",
     "price": 1.6799999475479126
+  },
+  "SWDY": {
+    "signal": "BUY",
+    "price": 81.38999938964844
+  },
+  "HRHO": {
+    "signal": "BUY",
+    "price": 26.3700008392334
   }
 }
