@@ -12,9 +12,8 @@
     "price": 86.0
   },
   "EAST": {
-    "signal": "BUY",
-    "price": 36.40999984741211,
-    "stop_loss": 35.0
+    "signal": "SELL",
+    "price": 41.650001525878906
   },
   "ISPH": {
     "signal": "SELL",
