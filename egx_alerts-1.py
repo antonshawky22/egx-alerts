@@ -118,7 +118,7 @@ for name, ticker in symbols.items():
     # Strategy Conditions (UPDATED)
     # =====================
     ema_up = df["EMA120"].iloc[-1] > df["EMA120"].iloc[-15]
-    price_ok = last["Close"] <= last["EMA120"] * 1.12
+    price_ok = last["Close"] <= last["EMA120"] * 1.08
     trend_ok = (last["Close"] - last["EMA120"]) / last["EMA120"] > 0.03
     rsi_buy = 45 <= last["RSI14"] <= 65
 
