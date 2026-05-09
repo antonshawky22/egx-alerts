@@ -120,18 +120,18 @@ for name, ticker in symbols.items():
     ema_up = df["EMA120"].iloc[-1] > df["EMA120"].iloc[-15]
     price_ok = last["Close"] <= last["EMA120"] * 1.08
     trend_ok = (last["Close"] - last["EMA120"]) / last["EMA120"] > 0.03
-    rsi_buy = 45 <= last["RSI14"] <= 65
+    rsi_buy = 45 <= last["RSI14"] <= 60
 
-    # تحسين الستوب (4 شموع)
-    stop_loss = low.iloc[-5:-1].min()
+    # تحسين الستوب (5 شموع)
+    stop_loss = low.iloc[-6:-1].min()
 
     # ========================================
     # BUY لن يظهر إذا السعر أقل من الستوب لوس
     # ========================================
     buy_signal = ema_up and trend_ok and price_ok and rsi_buy and last["Close"] > stop_loss
 
-    partial_sell = last["RSI14"] > 70
-    full_sell = last["RSI14"] > 83
+    partial_sell = last["RSI14"] > 72
+    full_sell = last["RSI14"] > 80
     stoploss_hit = last["Close"] < stop_loss
     in_trade = prev_state in ["BUY", "PARTIAL"]
 
