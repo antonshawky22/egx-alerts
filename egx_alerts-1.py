@@ -122,8 +122,8 @@ for name, ticker in symbols.items():
     trend_ok = (last["Close"] - last["EMA120"]) / last["EMA120"] > 0.03
     rsi_buy = 45 <= last["RSI14"] <= 60
 
-    # تحسين الستوب (5 شموع)
-    stop_loss = low.iloc[-6:-1].min()
+    # تحسين الستوب (7 شموع)
+    stop_loss = low.iloc[-8:-1].min()
 
     # ========================================
     # BUY لن يظهر إذا السعر أقل من الستوب لوس
