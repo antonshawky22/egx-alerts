@@ -118,12 +118,12 @@ for name, ticker in symbols.items():
     # Strategy Conditions (UPDATED)
     # =====================
     ema_up = df["EMA120"].iloc[-1] > df["EMA120"].iloc[-15]
-    price_ok = last["Close"] <= last["EMA120"] * 1.08
+    price_ok = last["Close"] <= last["EMA120"] * 1.04
     trend_ok = (last["Close"] - last["EMA120"]) / last["EMA120"] > 0.03
-    rsi_buy = 45 <= last["RSI14"] <= 50
+    rsi_buy = 25 <= last["RSI14"] <= 45
 
     # تحسين الستوب (7 شموع)
-    stop_loss = low.iloc[-8:-1].min()
+    stop_loss = low.iloc[-10:-1].min()
 
     # ========================================
     # BUY لن يظهر إذا السعر أقل من الستوب لوس
