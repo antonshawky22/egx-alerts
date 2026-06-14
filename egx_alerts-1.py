@@ -115,7 +115,7 @@ for name, ticker in symbols.items():
     prev_state = last_signals.get(name)
 
     # =====================
-    # Strategy Conditions (UPDATED)
+    # Strategy Conditions
     # =====================
     ema_up = df["EMA120"].iloc[-1] > df["EMA120"].iloc[-15]
     price_ok = last["Close"] <= last["EMA120"] * 1.08
@@ -124,9 +124,7 @@ for name, ticker in symbols.items():
     # تحسين الستوب (7 شموع)
     stop_loss = low.iloc[-7:-1].min()
 
-    # ========================================
     # BUY لن يظهر إذا السعر أقل من الستوب لوس
-    # ========================================
     buy_signal = ema_up and price_ok and rsi_buy and last["Close"] > stop_loss
 
     partial_sell = last["RSI14"] > 74
@@ -142,17 +140,17 @@ for name, ticker in symbols.items():
     elif partial_sell and in_trade:
         state = "PARTIAL"
     elif stoploss_hit and in_trade:
-        state = "SELL"
+        state = "STOP_LOSS" # تم تمييزها هنا لضمان تفعيل الحذف بدقة
     elif buy_signal:
         state = "BUY"
     else:
         continue
 
-    # =====================
-    # Prevent repeat signals
-    # =====================
+    # =========================================================
+    # Prevent repeat signals & Send Alerts
+    # =========================================================
     if state != prev_state:
-        if stoploss_hit and in_trade:
+        if state == "STOP_LOSS":
             break_pct = ((last["Close"] - stop_loss) / stop_loss) * 100
             alerts.append(
                 f"🚨 STOP LOSS | {name}\n"
@@ -162,6 +160,10 @@ for name, ticker in symbols.items():
                 f"RSI: {last['RSI14']:.1f}\n"
                 f"Date: {last_candle_date}"
             )
+            # [تعديل المشكلة 2]: حذف السهم تماماً من القاموس لتنظيف ملف الـ JSON
+            if name in new_signals: 
+                del new_signals[name]
+                
         elif state == "BUY":
             alerts.append(
                 f"🟢 BUY | {name}\n"
@@ -170,6 +172,8 @@ for name, ticker in symbols.items():
                 f"RSI: {last['RSI14']:.1f}\n"
                 f"Date: {last_candle_date}"
             )
+            new_signals[name] = state
+            
         elif state == "PARTIAL":
             alerts.append(
                 f"🟡 PARTIAL SELL | {name}\n"
@@ -177,6 +181,8 @@ for name, ticker in symbols.items():
                 f"RSI: {last['RSI14']:.1f}\n"
                 f"Date: {last_candle_date}"
             )
+            new_signals[name] = state
+            
         elif state == "SELL":
             alerts.append(
                 f"🔴 FULL SELL | {name}\n"
@@ -184,7 +190,9 @@ for name, ticker in symbols.items():
                 f"RSI: {last['RSI14']:.1f}\n"
                 f"Date: {last_candle_date}"
             )
-        new_signals[name] = state
+            # [تعديل المشكلة 2]: حذف السهم تماماً بعد الخروج الكلي بربح لتنظيف الملف
+            if name in new_signals: 
+                del new_signals[name]
 
 # =====================
 # Save Signals
