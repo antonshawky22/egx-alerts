@@ -7,11 +7,11 @@ import json
 import pandas as pd
 import time
 
-=====================
+#=====================
 
 Telegram settings
 
-=====================
+#=====================
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
@@ -26,11 +26,11 @@ requests.post(url, data={"chat_id": CHAT_ID, "text": text}, timeout=10)
 except Exception as e:
 print("Telegram send failed:", e)
 
-=====================
+#=====================
 
 Symbols
 
-=====================
+#=====================
 
 symbols = {
 "COMI": "COMI.CA",
@@ -42,11 +42,11 @@ symbols = {
 
 STATE_FILE = "last_signals.json"
 
-=====================
+#=====================
 
 Load state
 
-=====================
+#=====================
 
 try:
 with open(STATE_FILE, "r") as f:
@@ -54,11 +54,11 @@ state_data = json.load(f)
 except:
 state_data = {}
 
-=====================
+#=====================
 
 Fetch Data
 
-=====================
+#=====================
 
 def fetch_data(ticker):
 try:
@@ -71,11 +71,11 @@ return df
 except:
 return None
 
-=====================
+#=====================
 
 RSI
 
-=====================
+#=====================
 
 def rsi(series, period=14):
 delta = series.diff()
@@ -88,22 +88,22 @@ avg_loss = loss.ewm(alpha=1/period, adjust=False).mean()
 rs = avg_gain / avg_loss
 return 100 - (100 / (1 + rs))
 
-=====================
+#=====================
 
 Weighted Average
 
-=====================
+#=====================
 
 def update_avg(old_avg, old_pos, new_price, new_pos):
 added_pos = new_pos - old_pos
 total_cost = (old_avg * old_pos) + (new_price * added_pos)
 return total_cost / new_pos
 
-=====================
+#=====================
 
 Format Alert
 
-=====================
+#=====================
 
 def format_alert(title, name, price, position, avg, rsi, cycle, profit):
 return (
@@ -116,11 +116,11 @@ f"🔁 Cycle: {cycle}\n"
 f"💵 P/L: {profit:.2f}%"
 )
 
-=====================
+#=====================
 
 MAIN LOOP
 
-=====================
+#=====================
 
 alerts = []
 
@@ -251,20 +251,20 @@ if action:
         format_alert(action, name, price, s["position"], s["avg_price"], rsi_val, s["cycle"], profit)
     )
 
-=====================
+#=====================
 
 SAVE
 
-=====================
+#=====================
 
 with open(STATE_FILE, "w") as f:
 json.dump(state_data, f)
 
-=====================
+#=====================
 
 SEND
 
-=====================
+#=====================
 
 if alerts:
 send_telegram("\n\n----------------------\n\n".join(alerts))
