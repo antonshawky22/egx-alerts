@@ -1,4 +1,4 @@
-print("EGX ALERTS - EMA120 Pullback Strategy")
+print("EGX LADDER CYCLE SYSTEM")
 
 import yfinance as yf
 import requests
@@ -15,15 +15,12 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def send_telegram(text):
     if not TOKEN or not CHAT_ID:
-        print("Telegram credentials not set")
+        print(text)
         return
+
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     try:
-        requests.post(
-            url,
-            data={"chat_id": CHAT_ID, "text": text},
-            timeout=10
-        )
+        requests.post(url, data={"chat_id": CHAT_ID, "text": text}, timeout=10)
     except Exception as e:
         print("Telegram send failed:", e)
 
@@ -31,53 +28,36 @@ def send_telegram(text):
 # EGX symbols
 # =====================
 symbols = {
-    "OFH":"OFH.CA","OLFI":"OLFI.CA","EMFD":"EMFD.CA","ETEL":"ETEL.CA",
-    "EAST":"EAST.CA","EFIH":"EFIH.CA","ABUK":"ABUK.CA","OIH":"OIH.CA",
-    "SWDY":"SWDY.CA","ISPH":"ISPH.CA","ATQA":"ATQA.CA","MTIE":"MTIE.CA",
-    "ELEC":"ELEC.CA","HRHO":"HRHO.CA","ORWE":"ORWE.CA","JUFO":"JUFO.CA",
-    "DSCW":"DSCW.CA","SUGR":"SUGR.CA","ELSH":"ELSH.CA","RMDA":"RMDA.CA",
-    "RAYA":"RAYA.CA","EEII":"EEII.CA","MPCO":"MPCO.CA","GBCO":"GBCO.CA",
-    "TMGH":"TMGH.CA","ORHD":"ORHD.CA","AMOC":"AMOC.CA","FWRY":"FWRY.CA",
-    "COMI":"COMI.CA","ADIB":"ADIB.CA","PHDC":"PHDC.CA",
-    "MCQE":"MCQE.CA","SKPC":"SKPC.CA","EGAL":"EGAL.CA"
+    "COMI": "COMI.CA",
+    "HRHO": "HRHO.CA",
+    "FWRY": "FWRY.CA",
+    "EFIH": "EFIH.CA",
+    "TMGH": "TMGH.CA"
 }
 
-# =====================
-# Load last signals
-# =====================
-SIGNALS_FILE = "last_signals.json"
+STATE_FILE = "last_signals.json"
 
+# =====================
+# Load state
+# =====================
 try:
-    with open(SIGNALS_FILE, "r") as f:
-        last_signals = json.load(f)
+    with open(STATE_FILE, "r") as f:
+        state_data = json.load(f)
 except:
-    last_signals = {}
-
-new_signals = last_signals.copy()
-alerts = []
-data_failures = []
-last_candle_date = None
+    state_data = {}
 
 # =====================
 # Fetch Data
 # =====================
 def fetch_data(ticker):
     try:
-        df = yf.download(
-            ticker,
-            period="6mo",
-            interval="1d",
-            auto_adjust=True,
-            progress=False,
-            threads=False
-        )
+        df = yf.download(ticker, period="6mo", interval="1d", auto_adjust=True, progress=False)
         if df is None or df.empty:
             return None
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         return df
-    except Exception as e:
-        print("Data error:", ticker, e)
+    except:
         return None
 
 # =====================
@@ -87,134 +67,148 @@ def rsi(series, period=14):
     delta = series.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
+
     avg_gain = gain.ewm(alpha=1/period, adjust=False).mean()
     avg_loss = loss.ewm(alpha=1/period, adjust=False).mean()
+
     rs = avg_gain / avg_loss
     return 100 - (100 / (1 + rs))
 
 # =====================
-# Main Scan
+# MAIN LOOP
 # =====================
+alerts = []
+
 for name, ticker in symbols.items():
-    time.sleep(0.8)
+
+    time.sleep(0.5)
+
     df = fetch_data(ticker)
     if df is None or len(df) < 120:
-        data_failures.append(name)
         continue
 
-    last_candle_date = df.index[-1].date()
     close = df["Close"]
-    low = df["Low"]
 
-    # =====================
-    # Indicators
-    # =====================
     df["EMA120"] = close.ewm(span=120, adjust=False).mean()
-    df["RSI14"] = rsi(close, 14)
+    df["RSI"] = rsi(close)
+
     last = df.iloc[-1]
-    prev_state = last_signals.get(name)
+    price = last["Close"]
+    rsi_val = last["RSI"]
 
     # =====================
-    # Strategy Conditions
+    # Init state
+    # =====================
+    if name not in state_data:
+        state_data[name] = {
+            "cycle": 1,
+            "stage": 0,
+            "position": 0.0,
+            "avg_price": 0.0,
+            "levels": {"buy": [], "sell": []}
+        }
+
+    s = state_data[name]
+
+    # =====================
+    # Trend filter
     # =====================
     ema_up = df["EMA120"].iloc[-1] > df["EMA120"].iloc[-15]
-    price_ok = last["Close"] <= last["EMA120"] * 1.08
-    rsi_buy = 40 <= last["RSI14"] <= 55
-
-    # تحسين الستوب (7 شموع)
-    stop_loss = low.iloc[-7:-1].min()
-
-    # BUY لن يظهر إذا السعر أقل من الستوب لوس
-    buy_signal = ema_up and price_ok and rsi_buy and last["Close"] > stop_loss
-
-    partial_sell = last["RSI14"] > 74
-    full_sell = last["RSI14"] > 80
-    stoploss_hit = last["Close"] < stop_loss
-    in_trade = prev_state in ["BUY", "PARTIAL"]
 
     # =====================
-    # Determine state
+    # BUY CONDITIONS (3 levels)
     # =====================
-    if full_sell and in_trade:
-        state = "SELL"
-    elif partial_sell and in_trade:
-        state = "PARTIAL"
-    elif stoploss_hit and in_trade:
-        state = "STOP_LOSS" # تم تمييزها هنا لضمان تفعيل الحذف بدقة
-    elif buy_signal:
-        state = "BUY"
-    else:
-        continue
+    buy1 = ema_up and rsi_val <= 55
+    buy2 = ema_up and rsi_val <= 45
+    buy3 = ema_up and rsi_val <= 40
 
-    # =========================================================
-    # Prevent repeat signals & Send Alerts
-    # =========================================================
-    if state != prev_state:
-        if state == "STOP_LOSS":
-            break_pct = ((last["Close"] - stop_loss) / stop_loss) * 100
-            alerts.append(
-                f"🚨 STOP LOSS | {name}\n"
-                f"Close: {last['Close']:.2f}\n"
-                f"Stop Level: {stop_loss:.2f}\n"
-                f"Break: {break_pct:.2f}%\n"
-                f"RSI: {last['RSI14']:.1f}\n"
-                f"Date: {last_candle_date}"
-            )
-            # [تعديل المشكلة 2]: حذف السهم تماماً من القاموس لتنظيف ملف الـ JSON
-            if name in new_signals: 
-                del new_signals[name]
-                
-        elif state == "BUY":
-            alerts.append(
-                f"🟢 BUY | {name}\n"
-                f"Price: {last['Close']:.2f}\n"
-                f"Stop: {stop_loss:.2f}\n"
-                f"RSI: {last['RSI14']:.1f}\n"
-                f"Date: {last_candle_date}"
-            )
-            new_signals[name] = state
-            
-        elif state == "PARTIAL":
-            alerts.append(
-                f"🟡 PARTIAL SELL | {name}\n"
-                f"Price: {last['Close']:.2f}\n"
-                f"RSI: {last['RSI14']:.1f}\n"
-                f"Date: {last_candle_date}"
-            )
-            new_signals[name] = state
-            
-        elif state == "SELL":
-            alerts.append(
-                f"🔴 FULL SELL | {name}\n"
-                f"Price: {last['Close']:.2f}\n"
-                f"RSI: {last['RSI14']:.1f}\n"
-                f"Date: {last_candle_date}"
-            )
-            # [تعديل المشكلة 2]: حذف السهم تماماً بعد الخروج الكلي بربح لتنظيف الملف
-            if name in new_signals: 
-                del new_signals[name]
+    # =====================
+    # SELL CONDITIONS (3 levels)
+    # =====================
+    sell1 = rsi_val >= 65
+    sell2 = rsi_val >= 72
+    sell3 = rsi_val >= 78
+
+    action = None
+
+    # =====================
+    # BUY LOGIC
+    # =====================
+    if s["stage"] == 0 and buy1:
+        s["stage"] = 1
+        s["position"] = 0.33
+        s["avg_price"] = price
+        s["levels"]["buy"].append(price)
+        action = "BUY 33%"
+
+    elif s["stage"] == 1 and buy2:
+        s["stage"] = 2
+        s["position"] = 0.66
+        s["avg_price"] = (s["avg_price"] + price) / 2
+        s["levels"]["buy"].append(price)
+        action = "BUY 66%"
+
+    elif s["stage"] == 2 and buy3:
+        s["stage"] = 3
+        s["position"] = 1.0
+        s["avg_price"] = (s["avg_price"] + price) / 2
+        s["levels"]["buy"].append(price)
+        action = "BUY 100%"
+
+    # =====================
+    # SELL LOGIC
+    # =====================
+    elif s["stage"] == 3 and sell1:
+        s["stage"] = -1
+        s["position"] = 0.66
+        s["levels"]["sell"].append(price)
+        action = "SELL 33%"
+
+    elif s["stage"] == -1 and sell2:
+        s["stage"] = -2
+        s["position"] = 0.33
+        s["levels"]["sell"].append(price)
+        action = "SELL 66%"
+
+    elif s["stage"] == -2 and sell3:
+        s["stage"] = 0
+        s["position"] = 0.0
+        s["avg_price"] = 0.0
+        s["levels"] = {"buy": [], "sell": []}
+        s["cycle"] += 1
+        action = "SELL 100% (CYCLE RESET)"
+
+    # =====================
+    # PROFIT
+    # =====================
+    profit = 0
+    if s["avg_price"] > 0:
+        profit = ((price - s["avg_price"]) / s["avg_price"]) * 100
+
+    # =====================
+    # ALERT
+    # =====================
+    if action:
+        alerts.append(
+            f"{action} | {name}\n"
+            f"Price: {price:.2f}\n"
+            f"Position: {s['position']*100:.0f}%\n"
+            f"Avg: {s['avg_price']:.2f}\n"
+            f"RSI: {rsi_val:.1f}\n"
+            f"Cycle: {s['cycle']}\n"
+            f"P/L: {profit:.2f}%"
+        )
 
 # =====================
-# Save Signals
+# SAVE STATE
 # =====================
-with open(SIGNALS_FILE, "w") as f:
-    json.dump(new_signals, f)
+with open(STATE_FILE, "w") as f:
+    json.dump(state_data, f)
 
 # =====================
-# Telegram Output
+# SEND ALERTS
 # =====================
 if alerts:
-    send_telegram(
-        "📊 EGX EMA120 Pullback Signals\n\n" +
-        "\n\n".join(alerts)
-    )
+    send_telegram("\n\n".join(alerts))
 else:
-    send_telegram(
-        f"ℹ️ No new signals\nLast candle: {last_candle_date}"
-    )
-
-if data_failures:
-    send_telegram(
-        "⚠️ Failed to fetch data:\n" +
-        ", ".join(data_failures)
-    )
+    send_telegram("No new ladder signals")
