@@ -1,4 +1,4 @@
-print("EGX LADDER CYCLE SYSTEM - PRO (FINAL WORKING)")
+print("EGX LADDER CYCLE SYSTEM - FINAL CLEAN")
 
 import yfinance as yf
 import requests
