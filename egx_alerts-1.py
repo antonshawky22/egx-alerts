@@ -1,4 +1,4 @@
-print("EGX LADDER CYCLE SYSTEM - PRO (Smart Stop Loss)")
+print("EGX LADDER CYCLE SYSTEM - PRO (Improved Ladder)")
 
 import yfinance as yf
 import requests
@@ -214,14 +214,21 @@ for name, ticker in symbols.items():
             s["cycle"] += 1
 
         elif sell2:
-            sell_amount = min(0.66, s["position"])
-            s["position"] -= sell_amount
-            action = "🔴 SELL L2 (66%)"
+            # بيع 33% فقط (مش 66%)
+            sell_amount = 0.33
+            s["position"] = max(0, s["position"] - sell_amount)
+            action = "🔴 SELL L2 (33%)"
+
+            if s["position"] == 0:
+                s["avg_price"] = 0
 
         elif sell1:
-            sell_amount = min(0.33, s["position"])
-            s["position"] -= sell_amount
+            sell_amount = 0.33
+            s["position"] = max(0, s["position"] - sell_amount)
             action = "🔴 SELL L1 (33%)"
+
+            if s["position"] == 0:
+                s["avg_price"] = 0
 
     # =====================
     # ALERT
