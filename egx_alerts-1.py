@@ -51,10 +51,8 @@ def rsi(series, period=14):
 delta = series.diff()
 gain = delta.clip(lower=0)
 loss = -delta.clip(upper=0)
-
 avg_gain = gain.ewm(alpha=1/period, adjust=False).mean()
 avg_loss = loss.ewm(alpha=1/period, adjust=False).mean()
-
 rs = avg_gain / avg_loss
 return 100 - (100 / (1 + rs))
 
@@ -80,10 +78,9 @@ alerts = []
 
 for name, ticker in symbols.items():
 time.sleep(0.5)
-
 df = fetch_data(ticker)
 if df is None or len(df) < 120:
-    continue
+continue
 
 close = df["Close"]
 df["EMA120"] = close.ewm(span=120, adjust=False).mean()
@@ -144,7 +141,6 @@ if profit > s["peak_profit"]:
     s["peak_profit"] = profit
 
 if s["position"] > 0:
-
     stop_triggered = False
 
     if s["position"] <= 0.33 and profit <= -5:
