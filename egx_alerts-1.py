@@ -65,13 +65,13 @@ added_pos = new_pos - old_pos
 total_cost = (old_avg * old_pos) + (new_price * added_pos)
 return total_cost / new_pos
 
-def format_alert(title, name, price, position, avg, rsi, cycle, profit):
+def format_alert(title, name, price, position, avg, rsi_val, cycle, profit):
 return (
 f"{title} | {name}\n\n"
 f"💰 Price: {price:.2f}\n"
 f"📊 Position: {position*100:.0f}%\n"
 f"📉 Avg: {avg:.2f}\n\n"
-f"📈 RSI: {rsi:.1f}\n"
+f"📈 RSI: {rsi_val:.1f}\n"
 f"🔁 Cycle: {cycle}\n"
 f"💵 P/L: {profit:.2f}%"
 )
