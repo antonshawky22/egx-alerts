@@ -1,6 +1,5 @@
-print("EGX LADDER CYCLE SYSTEM - FINAL CLEAN & CORRECTED")
+print("EGX LADDER CYCLE SYSTEM - DATABASE SOURCED")
 
-import yfinance as yf
 import requests
 import os
 import json
@@ -32,6 +31,7 @@ symbols = {
 }
 
 STATE_FILE = "last_signals.json"
+DB_FILE = "egx_history_database.json"
 
 
 try:
@@ -41,24 +41,36 @@ except:
     state_data = {}
 
 
-def fetch_data(ticker):
+def fetch_local_data(name):
+    """
+    قراءة البيانات التاريخية والحديثة مباشرة من قاعدة البيانات المحلية المضغوطة
+    وتحويلها إلى DataFrame جاهز لحساب المؤشرات الفنية.
+    """
     try:
-        df = yf.download(
-            ticker,
-            period="6mo",
-            interval="1d",
-            auto_adjust=True,
-            progress=False
-        )
-
-        if df is None or df.empty:
+        if not os.path.exists(DB_FILE):
+            print(f"⚠️ Database file '{DB_FILE}' not found!")
             return None
-
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-
-        return df
-    except:
+            
+        with open(DB_FILE, "r") as f:
+            raw_database = json.load(f)
+            
+        if name not in raw_database:
+            print(f"⚠️ {name} not found in database.")
+            return None
+            
+        content = raw_database[name]
+        
+        if "columns" in content and "data" in content:
+            # إعادة بناء الجدول من صيغة الـ JSON المضغوطة
+            df_temp = pd.DataFrame.from_dict(content["data"], orient="index", columns=content["columns"])
+            df_temp.index.name = "Date"
+            # تحويل الكشاف لنوع تاريخ لضمان حساب المتوسطات المتحركة والـ RSI بدقة زمنية صحيحة
+            df_temp.index = pd.to_datetime(df_temp.index)
+            return df_temp
+        else:
+            return None
+    except Exception as e:
+        print(f"💥 Error reading local data for {name}: {e}")
         return None
 
 
@@ -102,9 +114,10 @@ alerts = []
 
 for name, ticker in symbols.items():
 
-    time.sleep(0.5)
+    time.sleep(0.1)
 
-    df = fetch_data(ticker)
+    # جلب البيانات النظيفة من الملف المحلى بدلاً من ياهو فاينانس
+    df = fetch_local_data(name)
     if df is None or len(df) < 120:
         continue
 
@@ -177,11 +190,12 @@ for name, ticker in symbols.items():
 
         stop_triggered = False
 
+        # نسب الستوب لوس المحدثة والمنطقية لتذبذب السوق المصري
         if s["position"] <= 0.33 and profit <= -8:
             stop_triggered = True
         elif s["position"] <= 0.66 and profit <= -5:
             stop_triggered = True
-        elif s["position"] == 1.0 and profit <= -3:
+        elif s["position"] == 1.0 and profit <= -4:
             stop_triggered = True
 
         if s["peak_profit"] > 2 and (s["peak_profit"] - profit) >= 3:
@@ -203,14 +217,12 @@ for name, ticker in symbols.items():
         elif sell2:
             sell_amount = min(0.33, s["position"])
             s["position"] -= sell_amount
-            # تعديل هام: لا نغير s["avg_price"] هنا لأنه بيع جزئي
             s["peak_profit"] = profit
             action = "🔴 SELL L2 (33%)"
 
         elif sell1:
             sell_amount = min(0.33, s["position"])
             s["position"] -= sell_amount
-            # تعديل هام: لا نغير s["avg_price"] هنا لأنه بيع جزئي
             s["peak_profit"] = profit
             action = "🔴 SELL L1 (33%)"
 
@@ -238,4 +250,4 @@ with open(STATE_FILE, "w") as f:
 if alerts:
     send_telegram("\n\n----------------------\n\n".join(alerts))
 else:
-    send_telegram("😴 No new signals")
+    send_telegram("ladder strategy  No new signals 😴")
