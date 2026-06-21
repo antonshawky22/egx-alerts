@@ -177,9 +177,9 @@ for name, ticker in symbols.items():
 
         stop_triggered = False
 
-        if s["position"] <= 0.33 and profit <= -5:
+        if s["position"] <= 0.33 and profit <= -8:
             stop_triggered = True
-        elif s["position"] <= 0.66 and profit <= -4:
+        elif s["position"] <= 0.66 and profit <= -5:
             stop_triggered = True
         elif s["position"] == 1.0 and profit <= -3:
             stop_triggered = True
