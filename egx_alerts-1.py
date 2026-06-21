@@ -122,7 +122,7 @@ for name, ticker in symbols.items():
         continue
 
     close = df["Close"]
-    df["EMA120"] = close.ewm(span=120, adjust=False).mean()
+    df["EMA75"] = close.ewm(span=75, adjust=False).mean()
     df["RSI"] = rsi(close)
 
     last = df.iloc[-1]
@@ -142,7 +142,7 @@ for name, ticker in symbols.items():
 
     s = state_data[name]
 
-    ema_up = df["EMA120"].iloc[-1] > df["EMA120"].iloc[-15]
+    ema_up = df["EMA75"].iloc[-1] > df["EMA75"].iloc[-10]
 
     buy1 = ema_up and rsi_val <= 55
     buy2 = ema_up and rsi_val <= 45
