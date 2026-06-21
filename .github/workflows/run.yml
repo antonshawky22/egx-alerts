@@ -1,11 +1,11 @@
-name: egx_alerts-1
+name: egx_ladder_system
 
 on:
   workflow_dispatch:
 
   schedule:
-    - cron: '00 00 * * *'  # 3:00   صباحًا بتوقيت مصر
-    - cron: '00 01 * * *'  # 4:00   صباحًا بتوقيت مصر
+    - cron: '15 12 * * *'  # الساعة 3:15 عصراً بتوقيت مصر (بعد الإغلاق)
+    - cron: '15 13 * * *'  # الساعة 4:15 عصراً بتوقيت مصر (تأكيد وتحديث نهائي)
 
 jobs:
   run:
@@ -25,19 +25,27 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install yfinance tradingview-ta requests pandas
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: egx_alerts-1
+      # 1️⃣ تشغيل سكريبت تحديث الأسعار أولاً وبناء ملف الـ json
+      - name: Update Price Database
+        run: python update_database.py
+
+      # 2️⃣ تشغيل سكريبت استراتيجية السلم وإرسال التليجرام بناءً على الملف الجاهز
+      - name: Run Ladder Strategy 
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python egx_alerts-1.py
+        run: python Egx_alerts-1.py
 
-      - name: Commit last signals
+      # 3️⃣ حفظ قاعدة البيانات وملف الإشارات معاً داخل الريبو
+      - name: Commit database and last signals
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          git add last_signals.json
-          git diff --cached --quiet || git commit -m "Update last signals [auto]"
+          # حفظ ملف الاستراتيجية وملف الأسعار المحدث
+          git add last_signals.json egx_history_database.json
+          git diff --cached --quiet || git commit -m "Update database and signals [auto]"
           git push
