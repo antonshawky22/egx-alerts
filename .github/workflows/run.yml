@@ -37,7 +37,7 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python Egx_alerts-1.py
+        run: python egx_alerts-1.py
 
       # 3️⃣ حفظ قاعدة البيانات وملف الإشارات معاً داخل الريبو
       - name: Commit database and last signals
