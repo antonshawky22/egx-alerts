@@ -118,7 +118,7 @@ for name, ticker in symbols.items():
 
     # جلب البيانات النظيفة من الملف المحلى بدلاً من ياهو فاينانس
     df = fetch_local_data(name)
-    if df is None or len(df) < 120:
+    if df is None or len(df) < 100:
         continue
 
     close = df["Close"]
@@ -198,7 +198,7 @@ for name, ticker in symbols.items():
         elif s["position"] == 1.0 and profit <= -4:
             stop_triggered = True
 
-        if s["peak_profit"] > 2 and (s["peak_profit"] - profit) >= 3:
+        if s["peak_profit"] > 10 and (s["peak_profit"] - profit) >= 4:
             stop_triggered = True
 
         if stop_triggered:
@@ -250,4 +250,4 @@ with open(STATE_FILE, "w") as f:
 if alerts:
     send_telegram("\n\n----------------------\n\n".join(alerts))
 else:
-    send_telegram("ladder strategy  No new signals 😴")
+    send_telegram("Ladder Strategy 😴 No new signals ")
