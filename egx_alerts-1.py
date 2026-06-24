@@ -122,6 +122,8 @@ for name, ticker in symbols.items():
         continue
 
     close = df["Close"]
+    df["EMA20"] = close.ewm(span=20, adjust=False).mean()
+    df["EMA30"] = close.ewm(span=30, adjust=False).mean()
     df["EMA75"] = close.ewm(span=75, adjust=False).mean()
     df["RSI"] = rsi(close)
 
